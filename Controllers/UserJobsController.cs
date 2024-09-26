@@ -2,75 +2,109 @@ using JobTracker.Models;
 using JobTracker.Repositories;
 using Microsoft.AspNetCore.Mvc;
 
-namespace JobTracker.Controllers
+namespace JobTracker.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class UserJobsController : ControllerBase
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    public class UserJobsController : ControllerBase
+    private readonly IUserJobRepository _userJobRepository;
+
+    public UserJobsController(IUserJobRepository userJobRepository)
     {
-        private readonly IUserJobRepository _userJobRepository;
+        _userJobRepository = userJobRepository;
+    }
 
-        public UserJobsController(IUserJobRepository userJobRepository)
+    [HttpGet]
+    public async Task<ActionResult<UserJobsResponseDto>> GetUserJobs([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+    {
+        var userJobs = await _userJobRepository.GetUserJobsAsync(pageNumber, pageSize);
+        var totalCount = await _userJobRepository.GetUserJobsCountAsync();
+
+        if (totalCount == 0)
         {
-            _userJobRepository = userJobRepository;
+            return NotFound(new { message = "No user jobs found" });
         }
 
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<UserJob>>> GetUserJobs()
+        var response = new UserJobsResponseDto
         {
-            var userJobs = await _userJobRepository.GetAllUserJobsAsync();
-            return Ok(userJobs);
-        }
-
-        [HttpGet("{id}")]
-        public async Task<ActionResult<UserJob>> GetUserJob(Guid id)
-        {
-            var userJob = await _userJobRepository.GetUserJobByIdAsync(id);
-            if (userJob == null)
+            UserJobs = userJobs.Select(uj => new UserJobDto
             {
-                return NotFound();
-            }
-            return Ok(userJob);
-        }
+                Id = uj.Id,
+                UserId = uj.UserId,
+                UserName = uj.User?.Username,
+                JobId = uj.JobId,
+                JobTitle = uj.Job?.JobTitle,
+                Status = uj.Status,
+                CreatedAt = uj.CreatedAt,
+                UpdatedAt = uj.UpdatedAt
+            }),
+            TotalCount = totalCount,
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        };
 
-        [HttpPost]
-        public async Task<ActionResult<UserJob>> CreateUserJob(UserJob userJob)
+        return Ok(response);
+    }
+
+    [HttpGet("{id}")]
+    public async Task<ActionResult<UserJobDto>> GetUserJob(Guid id)
+    {
+        var userJob = await _userJobRepository.GetUserJobByIdAsync(id);
+        if (userJob == null) return NotFound(new { message = $"UserJob with id {id} not found" });
+        
+        var userJobDto = new UserJobDto
         {
-            var createdUserJob = await _userJobRepository.CreateUserJobAsync(userJob);
-            return CreatedAtAction(nameof(GetUserJob), new { id = createdUserJob.Id }, createdUserJob);
-        }
+            Id = userJob.Id,
+            UserId = userJob.UserId,
+            UserName = userJob.User?.Username,
+            JobId = userJob.JobId,
+            JobTitle = userJob.Job?.JobTitle,
+            Status = userJob.Status,
+            CreatedAt = userJob.CreatedAt,
+            UpdatedAt = userJob.UpdatedAt
+        };
+        
+        return Ok(userJobDto);
+    }
 
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateUserJob(Guid id, UserJob userJob)
-        {
-            if (id != userJob.Id)
-            {
-                return BadRequest();
-            }
+    [HttpPost]
+    public async Task<ActionResult<UserJob>> CreateUserJob(UserJob userJob)
+    {
+        var createdUserJob = await _userJobRepository.CreateUserJobAsync(userJob);
+        return CreatedAtAction(nameof(GetUserJob), new { id = createdUserJob.Id }, createdUserJob);
+    }
 
-            await _userJobRepository.UpdateUserJobAsync(userJob);
-            return NoContent();
-        }
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateUserJob(Guid id, UserJob userJob)
+    {
+        if (id != userJob.Id) return BadRequest(new { message = "Id in URL does not match Id in request body" });
 
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteUserJob(Guid id)
-        {
-            await _userJobRepository.DeleteUserJobAsync(id);
-            return NoContent();
-        }
+        var existingUserJob = await _userJobRepository.GetUserJobByIdAsync(id);
+        if (existingUserJob == null) return NotFound(new { message = $"UserJob with id {id} not found" });
 
-        [HttpPut("{id}/status")]
-        public async Task<IActionResult> UpdateUserJobStatus(Guid id, [FromBody] UserJobStatus newStatus)
-        {
-            var userJob = await _userJobRepository.GetUserJobByIdAsync(id);
-            if (userJob == null)
-            {
-                return NotFound();
-            }
+        await _userJobRepository.UpdateUserJobAsync(userJob);
+        return NoContent();
+    }
 
-            userJob.Status = newStatus;
-            await _userJobRepository.UpdateUserJobAsync(userJob);
-            return NoContent();
-        }
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteUserJob(Guid id)
+    {
+        var existingUserJob = await _userJobRepository.GetUserJobByIdAsync(id);
+        if (existingUserJob == null) return NotFound(new { message = $"UserJob with id {id} not found" });
+
+        await _userJobRepository.DeleteUserJobAsync(id);
+        return NoContent();
+    }
+
+    [HttpPut("{id}/status")]
+    public async Task<IActionResult> UpdateUserJobStatus(Guid id, [FromBody] UserJobStatus newStatus)
+    {
+        var userJob = await _userJobRepository.GetUserJobByIdAsync(id);
+        if (userJob == null) return NotFound(new { message = $"UserJob with id {id} not found" });
+
+        userJob.Status = newStatus;
+        await _userJobRepository.UpdateUserJobAsync(userJob);
+        return NoContent();
     }
 }
