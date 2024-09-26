@@ -11,7 +11,7 @@ public class UserJob
 
     [ForeignKey("UserId")] public User? User { get; set; }
 
-    public Guid JobId { get; set; }
+    public int JobId { get; set; }  // Changed from Guid to int
 
     [ForeignKey("JobId")] public Job? Job { get; set; }
 

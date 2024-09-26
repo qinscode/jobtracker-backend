@@ -50,7 +50,6 @@ builder.Services.AddDbContext<JobTrackerContext>(options =>
 // Register repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IJobRepository, JobRepository>();
-builder.Services.AddScoped<ICompanyRepository, CompanyRepository>();
 builder.Services.AddScoped<IUserJobRepository, UserJobRepository>();
 
 var app = builder.Build();
@@ -79,13 +78,13 @@ public class SnakeCaseNamingPolicy : JsonNamingPolicy
 {
     public override string ConvertName(string name)
     {
-        return string.IsNullOrEmpty(name) 
-            ? name 
+        return string.IsNullOrEmpty(name)
+            ? name
             : Regex.Replace(
-                name, 
-                @"([a-z0-9])([A-Z])", 
-                "$1_$2", 
-                RegexOptions.Compiled, 
+                name,
+                @"([a-z0-9])([A-Z])",
+                "$1_$2",
+                RegexOptions.Compiled,
                 TimeSpan.FromMilliseconds(100)).ToLower();
     }
 }

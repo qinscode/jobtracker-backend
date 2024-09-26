@@ -59,7 +59,7 @@ public class UserJobRepository : IUserJobRepository
         return await _context.UserJobs.CountAsync();
     }
 
-    public async Task<UserJob?> GetUserJobByUserIdAndJobIdAsync(Guid userId, Guid jobId)
+    public async Task<UserJob?> GetUserJobByUserIdAndJobIdAsync(Guid userId, int jobId)  // Changed from Guid to int
     {
         return await _context.UserJobs
             .FirstOrDefaultAsync(uj => uj.UserId == userId && uj.JobId == jobId);

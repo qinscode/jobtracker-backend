@@ -16,7 +16,6 @@ public class JobRepository : IJobRepository
     public async Task<IEnumerable<Job>> GetJobsAsync(int pageNumber, int pageSize)
     {
         return await _context.Jobs
-            .Include(j => j.Advertiser)
             .OrderByDescending(j => j.CreatedAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
@@ -28,10 +27,9 @@ public class JobRepository : IJobRepository
         return await _context.Jobs.CountAsync();
     }
 
-    public async Task<Job?> GetJobByIdAsync(Guid id)
+    public async Task<Job?> GetJobByIdAsync(int id) // Changed from Guid to int
     {
         return await _context.Jobs
-            .Include(j => j.Advertiser)
             .FirstOrDefaultAsync(j => j.Id == id);
     }
 
@@ -48,7 +46,7 @@ public class JobRepository : IJobRepository
         await _context.SaveChangesAsync();
     }
 
-    public async Task DeleteJobAsync(Guid id)
+    public async Task DeleteJobAsync(int id) // Changed from Guid to int
     {
         var job = await _context.Jobs.FindAsync(id);
         if (job != null)
@@ -61,7 +59,6 @@ public class JobRepository : IJobRepository
     public async Task<IEnumerable<Job>> GetNewJobsAsync(int pageNumber, int pageSize)
     {
         return await _context.Jobs
-            .Include(j => j.Advertiser)
             .Where(j => j.IsNew == true)
             .OrderByDescending(j => j.CreatedAt)
             .Skip((pageNumber - 1) * pageSize)
