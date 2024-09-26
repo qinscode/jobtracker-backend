@@ -22,6 +22,14 @@ namespace JobTracker.Repositories
         {
             return await _context.Users.FindAsync(id);
         }
+        
+        public async Task<User?> GetUserByEmailAsync(string? email)
+        {
+            if (string.IsNullOrEmpty(email))
+                return null;
+
+            return await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
+        }
 
         public async Task<User> CreateUserAsync(User user)
         {

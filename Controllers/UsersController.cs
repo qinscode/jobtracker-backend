@@ -34,6 +34,7 @@ namespace JobTracker.Controllers
         }
 
         [HttpPost]
+        [HttpPost]
         public async Task<ActionResult<User>> CreateUser(User user)
         {
             if (string.IsNullOrEmpty(user.PasswordHash))
@@ -41,11 +42,18 @@ namespace JobTracker.Controllers
                 return BadRequest("Password is required");
             }
 
+            // Check if the email already exists
+            var existingUser = await _userRepository.GetUserByEmailAsync(user.Email);
+            if (existingUser != null)
+            {
+                return BadRequest("Email is already in use");
+            }
+
             var createdUser = await _userRepository.CreateUserAsync(user);
-            
+
             // Don't return the password hash in the response
             createdUser.PasswordHash = null;
-            
+
             return CreatedAtAction(nameof(GetUser), new { id = createdUser.Id }, createdUser);
         }
 
