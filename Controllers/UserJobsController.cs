@@ -47,8 +47,16 @@ public class UserJobsController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<UserJob>> CreateUserJob(CreateUserJobDto createUserJobDto)
+    public async Task<ActionResult<UserJob>> CreateUserJob([FromBody] CreateUserJobDto createUserJobDto)
     {
+        // 添加日志记录
+        Console.WriteLine($"Received request: {System.Text.Json.JsonSerializer.Serialize(createUserJobDto)}");
+
+        if (createUserJobDto == null)
+        {
+            return BadRequest(new { message = "Invalid request body" });
+        }
+
         var validationResult = await ValidateCreateUserJobDto(createUserJobDto);
         if (validationResult != null) return validationResult;
 
@@ -116,23 +124,41 @@ public class UserJobsController : ControllerBase
     }
 
     [HttpGet("status/{status}")]
-    public async Task<ActionResult<UserJobsResponseDto>> GetUserJobsByStatus(
+    public async Task<ActionResult<JobsResponseDto>> GetUserJobsByStatus(
         UserJobStatus status, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
     {
         var userGuid = GetUserIdFromToken();
 
-        var userJobs =
-            await _userJobRepository.GetUserJobsByUserIdAndStatusAsync(userGuid, status, pageNumber, pageSize);
-        var totalCount = await _userJobRepository.GetUserJobsCountByUserIdAndStatusAsync(userGuid, status);
+        var jobs = await _userJobRepository.GetJobsByUserIdAndStatusAsync(userGuid, status, pageNumber, pageSize);
+        var totalCount = await _userJobRepository.GetJobsCountByUserIdAndStatusAsync(userGuid, status);
 
-        // if (totalCount == 0) return NotFound(new { message = $"No user jobs found with status {status}" });
+        var response = new JobsResponseDto
+        {
+            Jobs = jobs.Select(j => new JobDto
+            {
+                Id = j.Id.ToString(),
+                JobTitle = j.JobTitle ?? "",
+                BusinessName = j.BusinessName ?? "",
+                WorkType = j.WorkType ?? "",
+                JobType = j.JobType ?? "",
+                PayRange = j.PayRange ?? "",
+                Suburb = j.Suburb ?? "",
+                Area = j.Area ?? "",
+                Url = j.Url ?? "",
+                Status = status.ToString(),
+                PostedDate = j.PostedDate?.ToString("yyyy-MM-dd") ?? "",
+                JobDescription = j.JobDescription ?? ""
+            }),
+            TotalCount = totalCount,
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        };
 
-        var response = CreateUserJobsResponse(userJobs, totalCount, pageNumber, pageSize);
         return Ok(response);
     }
 
     [HttpGet("recent")]
-    public async Task<ActionResult<IEnumerable<UserJobDto>>> GetRecentUserJobs([FromQuery] int count = 10)
+    public async Task<ActionResult<IEnumerable<UserJobDto>>> GetRecentUserJobs([FromQuery] int count = 5)
     {
         var userGuid = GetUserIdFromToken();
 
