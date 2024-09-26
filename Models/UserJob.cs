@@ -1,39 +1,36 @@
-using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace JobTracker.Models
+namespace JobTracker.Models;
+
+public class UserJob
 {
-    public class UserJob
-    {
-        [Key]
-        public Guid Id { get; set; }
+    [Key] public Guid Id { get; set; }
 
-        public Guid UserId { get; set; }
-        
-        [ForeignKey("UserId")]
-        public User? User { get; set; }
+    public Guid UserId { get; set; }
 
-        public Guid JobId { get; set; }
-        
-        [ForeignKey("JobId")]
-        public Job? Job { get; set; }
+    [ForeignKey("UserId")] public User? User { get; set; }
 
-        [EnumDataType(typeof(UserJobStatus))]
-        public UserJobStatus Status { get; set; } = UserJobStatus.New;
+    public Guid JobId { get; set; }
 
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
-    }
+    [ForeignKey("JobId")] public Job? Job { get; set; }
 
-    public enum UserJobStatus
-    {
-        New,
-        Saved,
-        Applied,
-        Interviewing,
-        Offered,
-        Rejected,
-        Accepted
-    }
+    public UserJobStatus Status { get; set; } = UserJobStatus.New;
+
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public enum UserJobStatus
+{
+    New,
+    Pending,
+    Archived,
+    Reviewed,
+    Ghosting,
+    Applied,
+    Interviewing,
+    TechnicalAssessment,
+    Offered,
+    Rejected
 }

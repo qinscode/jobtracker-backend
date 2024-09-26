@@ -57,4 +57,22 @@ public class JobRepository : IJobRepository
             await _context.SaveChangesAsync();
         }
     }
+
+    public async Task<IEnumerable<Job>> GetNewJobsAsync(int pageNumber, int pageSize)
+    {
+        return await _context.Jobs
+            .Include(j => j.Advertiser)
+            .Where(j => j.IsNew == true)
+            .OrderByDescending(j => j.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+    }
+
+    public async Task<int> GetNewJobsCountAsync()
+    {
+        return await _context.Jobs
+            .Where(j => j.IsNew == true)
+            .CountAsync();
+    }
 }

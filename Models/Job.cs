@@ -26,5 +26,8 @@ namespace JobTracker.Models
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+        // New nullable IsNew property
+        public bool? IsNew { get; set; }
     }
 }

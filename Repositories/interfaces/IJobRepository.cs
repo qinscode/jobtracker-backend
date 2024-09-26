@@ -10,4 +10,6 @@ public interface IJobRepository
     Task<Job> CreateJobAsync(Job job);
     Task UpdateJobAsync(Job job);
     Task DeleteJobAsync(Guid id);
+    Task<IEnumerable<Job>> GetNewJobsAsync(int pageNumber, int pageSize);
+    Task<int> GetNewJobsCountAsync();
 }
