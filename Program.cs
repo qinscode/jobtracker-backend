@@ -1,4 +1,7 @@
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using JobTracker.Data;
 using JobTracker.Repositories;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -9,7 +12,10 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllers()
-    .AddJsonOptions(options => { options.JsonSerializerOptions.PropertyNameCaseInsensitive = true; });
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+    });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -67,3 +73,19 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+// 自定义 SnakeCaseNamingPolicy 类
+public class SnakeCaseNamingPolicy : JsonNamingPolicy
+{
+    public override string ConvertName(string name)
+    {
+        return string.IsNullOrEmpty(name) 
+            ? name 
+            : Regex.Replace(
+                name, 
+                @"([a-z0-9])([A-Z])", 
+                "$1_$2", 
+                RegexOptions.Compiled, 
+                TimeSpan.FromMilliseconds(100)).ToLower();
+    }
+}

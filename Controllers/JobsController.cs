@@ -30,20 +30,18 @@ namespace JobTracker.Controllers
             {
                 Jobs = jobs.Select(j => new JobDto
                 {
-                    Id = j.Id,
-                    JobTitle = j.JobTitle,
-                    BusinessName = j.BusinessName,
-                    WorkType = j.WorkType,
-                    JobType = j.JobType,
-                    PayRange = j.PayRange,
-                    Suburb = j.Suburb,
-                    Area = j.Area,
-                    Url = j.Url,
-                    PostedDate = j.PostedDate,
-                    AdvertiserName = j.Advertiser?.Name,
-                    CreatedAt = j.CreatedAt,
-                    UpdatedAt = j.UpdatedAt,
-                    // IsNew is not set here
+                    Id = j.Id.ToString(),
+                    JobTitle = j.JobTitle ?? "",
+                    BusinessName = j.BusinessName ?? "",
+                    WorkType = j.WorkType ?? "",
+                    JobType = j.JobType ?? "",
+                    PayRange = j.PayRange ?? "",
+                    Suburb = j.Suburb ?? "",
+                    Area = j.Area ?? "",
+                    Url = j.Url ?? "",
+                    Status = "New", // 默认设置为 "New"，您可能需要根据实际情况调整
+                    PostedDate = j.PostedDate?.ToString("yyyy-MM-dd") ?? "",
+                    JobDescription = j.JobDescription ?? ""
                 }),
                 TotalCount = totalCount,
                 PageNumber = pageNumber,
@@ -63,7 +61,7 @@ namespace JobTracker.Controllers
             }
             var jobDto = new JobDto
             {
-                Id = job.Id,
+                Id = job.Id.ToString(),
                 JobTitle = job.JobTitle,
                 BusinessName = job.BusinessName,
                 WorkType = job.WorkType,
@@ -72,11 +70,9 @@ namespace JobTracker.Controllers
                 Suburb = job.Suburb,
                 Area = job.Area,
                 Url = job.Url,
-                PostedDate = job.PostedDate,
-                AdvertiserName = job.Advertiser?.Name,
-                CreatedAt = job.CreatedAt,
-                UpdatedAt = job.UpdatedAt,
-                // IsNew is not set here
+                Status = "New", // 默认设置为 "New"，您可能需要根据实际情况调整
+                PostedDate = job.PostedDate?.ToString("yyyy-MM-dd"),
+                JobDescription = job.JobDescription
             };
             return Ok(jobDto);
         }
@@ -134,7 +130,7 @@ namespace JobTracker.Controllers
             {
                 Jobs = jobs.Select(j => new JobDto
                 {
-                    Id = j.Id,
+                    Id = j.Id.ToString(),
                     JobTitle = j.JobTitle,
                     BusinessName = j.BusinessName,
                     WorkType = j.WorkType,
@@ -143,11 +139,9 @@ namespace JobTracker.Controllers
                     Suburb = j.Suburb,
                     Area = j.Area,
                     Url = j.Url,
-                    PostedDate = j.PostedDate,
-                    AdvertiserName = j.Advertiser?.Name,
-                    CreatedAt = j.CreatedAt,
-                    UpdatedAt = j.UpdatedAt,
-                    IsNew = true // All jobs returned by this endpoint are new
+                    Status = "New",
+                    PostedDate = j.PostedDate?.ToString("yyyy-MM-dd"),
+                    JobDescription = j.JobDescription
                 }),
                 TotalCount = totalCount,
                 PageNumber = pageNumber,

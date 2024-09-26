@@ -1,19 +1,20 @@
-namespace JobTracker.Models;
+using System.Text.Json.Serialization;
 
-public class JobDto
+namespace JobTracker.Models
 {
-    public Guid Id { get; set; }
-    public string? JobTitle { get; set; }
-    public string? BusinessName { get; set; }
-    public string? WorkType { get; set; }
-    public string? JobType { get; set; }
-    public string? PayRange { get; set; }
-    public string? Suburb { get; set; }
-    public string? Area { get; set; }
-    public string? Url { get; set; }
-    public DateTime? PostedDate { get; set; }
-    public string? AdvertiserName { get; set; }
-    public DateTime CreatedAt { get; set; }
-    public DateTime UpdatedAt { get; set; }
-    public bool IsNew { get; set; }
+    public class JobDto
+    {
+        public string Id { get; set; }
+        public string JobTitle { get; set; }
+        public string BusinessName { get; set; }
+        public string WorkType { get; set; }
+        public string JobType { get; set; }
+        public string PayRange { get; set; }
+        public string Suburb { get; set; }
+        public string Area { get; set; }
+        public string Url { get; set; }
+        public string Status { get; set; }
+        public string PostedDate { get; set; }
+        public string JobDescription { get; set; }
+    }
 }
