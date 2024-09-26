@@ -125,7 +125,7 @@ public class UserJobsController : ControllerBase
             await _userJobRepository.GetUserJobsByUserIdAndStatusAsync(userGuid, status, pageNumber, pageSize);
         var totalCount = await _userJobRepository.GetUserJobsCountByUserIdAndStatusAsync(userGuid, status);
 
-        if (totalCount == 0) return NotFound(new { message = $"No user jobs found with status {status}" });
+        // if (totalCount == 0) return NotFound(new { message = $"No user jobs found with status {status}" });
 
         var response = CreateUserJobsResponse(userJobs, totalCount, pageNumber, pageSize);
         return Ok(response);
