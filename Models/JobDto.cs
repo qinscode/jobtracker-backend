@@ -4,7 +4,7 @@ namespace JobTracker.Models
 {
     public class JobDto
     {
-        public string Id { get; set; }
+        public int Id { get; set; }  // Changed from string to int
         public string JobTitle { get; set; }
         public string BusinessName { get; set; }
         public string WorkType { get; set; }

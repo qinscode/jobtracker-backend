@@ -136,7 +136,7 @@ public class UserJobsController : ControllerBase
         {
             Jobs = jobs.Select(j => new JobDto
             {
-                Id = j.Id.ToString(),
+                Id = j.Id,  // Changed from string to int
                 JobTitle = j.JobTitle ?? "",
                 BusinessName = j.BusinessName ?? "",
                 WorkType = j.WorkType ?? "",
