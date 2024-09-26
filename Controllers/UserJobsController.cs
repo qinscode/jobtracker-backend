@@ -15,7 +15,8 @@ public class UserJobsController : ControllerBase
     private readonly IUserJobRepository _userJobRepository;
     private readonly IUserRepository _userRepository;
 
-    public UserJobsController(IUserJobRepository userJobRepository, IUserRepository userRepository, IJobRepository jobRepository)
+    public UserJobsController(IUserJobRepository userJobRepository, IUserRepository userRepository,
+        IJobRepository jobRepository)
     {
         _userJobRepository = userJobRepository;
         _userRepository = userRepository;
@@ -23,7 +24,8 @@ public class UserJobsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<UserJobsResponseDto>> GetUserJobs([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+    public async Task<ActionResult<UserJobsResponseDto>> GetUserJobs([FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10)
     {
         var userJobs = await _userJobRepository.GetUserJobsAsync(pageNumber, pageSize);
         var totalCount = await _userJobRepository.GetUserJobsCountAsync();
@@ -119,7 +121,8 @@ public class UserJobsController : ControllerBase
     {
         var userGuid = GetUserIdFromToken();
 
-        var userJobs = await _userJobRepository.GetUserJobsByUserIdAndStatusAsync(userGuid, status, pageNumber, pageSize);
+        var userJobs =
+            await _userJobRepository.GetUserJobsByUserIdAndStatusAsync(userGuid, status, pageNumber, pageSize);
         var totalCount = await _userJobRepository.GetUserJobsCountByUserIdAndStatusAsync(userGuid, status);
 
         if (totalCount == 0) return NotFound(new { message = $"No user jobs found with status {status}" });
@@ -135,7 +138,6 @@ public class UserJobsController : ControllerBase
 
         var statuses = new[]
         {
-            UserJobStatus.Applied,
             UserJobStatus.Interviewing,
             UserJobStatus.TechnicalAssessment,
             UserJobStatus.Offered,
@@ -163,7 +165,8 @@ public class UserJobsController : ControllerBase
         return userGuid;
     }
 
-    private UserJobsResponseDto CreateUserJobsResponse(IEnumerable<UserJob> userJobs, int totalCount, int pageNumber, int pageSize)
+    private UserJobsResponseDto CreateUserJobsResponse(IEnumerable<UserJob> userJobs, int totalCount, int pageNumber,
+        int pageSize)
     {
         return new UserJobsResponseDto
         {
@@ -197,7 +200,8 @@ public class UserJobsController : ControllerBase
         var job = await _jobRepository.GetJobByIdAsync(createUserJobDto.JobId);
         if (job == null) return BadRequest(new { message = "Invalid JobId" });
 
-        var existingUserJob = await _userJobRepository.GetUserJobByUserIdAndJobIdAsync(createUserJobDto.UserId, createUserJobDto.JobId);
+        var existingUserJob =
+            await _userJobRepository.GetUserJobByUserIdAndJobIdAsync(createUserJobDto.UserId, createUserJobDto.JobId);
         if (existingUserJob != null)
             return Conflict(new { message = "A UserJob with the same UserId and JobId already exists." });
 
@@ -216,9 +220,7 @@ public class UserJobsController : ControllerBase
         if (job == null) return BadRequest(new { message = "Invalid JobId" });
 
         if (!Enum.TryParse<UserJobStatus>(updateUserJobDto.Status, true, out _))
-        {
             return BadRequest(new { message = $"Invalid status value: {updateUserJobDto.Status}" });
-        }
 
         return null;
     }
@@ -228,13 +230,9 @@ public class UserJobsController : ControllerBase
         userJob.UserId = updateUserJobDto.UserId;
         userJob.JobId = updateUserJobDto.JobId;
         if (Enum.TryParse<UserJobStatus>(updateUserJobDto.Status, true, out var status))
-        {
             userJob.Status = status;
-        }
         else
-        {
             throw new ArgumentException($"Invalid status value: {updateUserJobDto.Status}");
-        }
         userJob.UpdatedAt = DateTime.UtcNow;
     }
 }
