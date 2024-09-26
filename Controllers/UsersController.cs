@@ -36,20 +36,37 @@ namespace JobTracker.Controllers
         [HttpPost]
         public async Task<ActionResult<User>> CreateUser(User user)
         {
+            if (string.IsNullOrEmpty(user.PasswordHash))
+            {
+                return BadRequest("Password is required");
+            }
+
             var createdUser = await _userRepository.CreateUserAsync(user);
+            
+            // Don't return the password hash in the response
+            createdUser.PasswordHash = null;
+            
             return CreatedAtAction(nameof(GetUser), new { id = createdUser.Id }, createdUser);
         }
 
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateUser(Guid id, User user)
         {
+            // check if the id in the URL matches the id in the request body
             if (id != user.Id)
             {
                 return BadRequest();
             }
 
-            await _userRepository.UpdateUserAsync(user);
-            return NoContent();
+            try
+            {
+                await _userRepository.UpdateUserAsync(id, user);
+                return NoContent();
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound();
+            }
         }
 
         [HttpDelete("{id}")]

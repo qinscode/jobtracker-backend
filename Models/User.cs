@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using BCrypt.Net;
 using System.ComponentModel.DataAnnotations;
 
 namespace JobTracker.Models
@@ -18,5 +19,15 @@ namespace JobTracker.Models
 
         // Navigation property
         public ICollection<UserJob>? UserJobs { get; set; }
+        
+        public void SetPassword(string password)
+        {
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(password);
+        }
+
+        public bool VerifyPassword(string password)
+        {
+            return BCrypt.Net.BCrypt.Verify(password, PasswordHash);
+        }
     }
 }

@@ -25,17 +25,52 @@ namespace JobTracker.Repositories
 
         public async Task<User> CreateUserAsync(User user)
         {
+            // Ensure the password is hashed before saving
+            if (!string.IsNullOrEmpty(user.PasswordHash))
+            {
+                user.SetPassword(user.PasswordHash);
+            }
+
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
             return user;
         }
 
-        public async Task UpdateUserAsync(User user)
+        public async Task UpdateUserAsync(Guid id, User updatedUser)
         {
-            _context.Entry(user).State = EntityState.Modified;
+            var user = await _context.Users.FindAsync(id);
+            if (user == null)
+            {
+                throw new KeyNotFoundException($"User with id {id} not found.");
+            }
+
+            var blacklist = new HashSet<string> { "Id", "CreatedAt", "PasswordHash" };
+
+            var properties = typeof(User).GetProperties();
+
+            foreach (var property in properties)
+            {
+                if (blacklist.Contains(property.Name))
+                    continue;
+
+                var updatedValue = property.GetValue(updatedUser);
+
+                if (updatedValue != null)
+                {
+                    property.SetValue(user, updatedValue);
+                }
+            }
+
+            // Handle password update separately and securely
+            if (!string.IsNullOrEmpty(updatedUser.PasswordHash))
+            {
+                user.SetPassword(updatedUser.PasswordHash);
+            }
+
+            user.UpdatedAt = DateTime.UtcNow;
+
             await _context.SaveChangesAsync();
         }
-
         public async Task DeleteUserAsync(Guid id)
         {
             var user = await _context.Users.FindAsync(id);
