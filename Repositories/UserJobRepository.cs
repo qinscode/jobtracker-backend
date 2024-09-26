@@ -99,4 +99,20 @@ public class UserJobRepository : IUserJobRepository
             .Include(uj => uj.Job)
             .ToListAsync();
     }
+
+    public async Task<IEnumerable<Job>> GetJobsByUserIdAndStatusAsync(Guid userId, UserJobStatus status, int pageNumber, int pageSize)
+    {
+        return await _context.UserJobs
+            .Where(uj => uj.UserId == userId && uj.Status == status)
+            .Select(uj => uj.Job)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+    }
+
+    public async Task<int> GetJobsCountByUserIdAndStatusAsync(Guid userId, UserJobStatus status)
+    {
+        return await _context.UserJobs
+            .CountAsync(uj => uj.UserId == userId && uj.Status == status);
+    }
 }

@@ -14,5 +14,8 @@ namespace JobTracker.Repositories
         Task<IEnumerable<UserJob>> GetUserJobsByUserIdAndStatusAsync(Guid userId, UserJobStatus status, int pageNumber, int pageSize);
         Task<int> GetUserJobsCountByUserIdAndStatusAsync(Guid userId, UserJobStatus status);
         Task<IEnumerable<UserJob>> GetRecentUserJobsAsync(Guid userId, int count, UserJobStatus[] statuses);
+
+        Task<IEnumerable<Job>> GetJobsByUserIdAndStatusAsync(Guid userId, UserJobStatus status, int pageNumber, int pageSize);
+        Task<int> GetJobsCountByUserIdAndStatusAsync(Guid userId, UserJobStatus status);
     }
 }
