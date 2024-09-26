@@ -51,5 +51,20 @@ namespace JobTracker.Repositories
                 await _context.SaveChangesAsync();
             }
         }
+
+        public async Task<IEnumerable<UserJob>> GetUserJobsAsync(int pageNumber, int pageSize)
+        {
+            return await _context.UserJobs
+                .Include(uj => uj.User)
+                .Include(uj => uj.Job)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+        }
+
+        public async Task<int> GetUserJobsCountAsync()
+        {
+            return await _context.UserJobs.CountAsync();
+        }
     }
 }

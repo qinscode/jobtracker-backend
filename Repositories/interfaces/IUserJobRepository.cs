@@ -4,7 +4,8 @@ namespace JobTracker.Repositories
 {
     public interface IUserJobRepository
     {
-        Task<IEnumerable<UserJob>> GetAllUserJobsAsync();
+        Task<IEnumerable<UserJob>> GetUserJobsAsync(int pageNumber, int pageSize);
+        Task<int> GetUserJobsCountAsync();
         Task<UserJob?> GetUserJobByIdAsync(Guid id);
         Task<UserJob> CreateUserJobAsync(UserJob userJob);
         Task UpdateUserJobAsync(UserJob userJob);
