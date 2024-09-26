@@ -15,4 +15,5 @@ public class JobDto
     public string? AdvertiserName { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+    public bool IsNew { get; set; }
 }

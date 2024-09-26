@@ -42,7 +42,8 @@ namespace JobTracker.Controllers
                     PostedDate = j.PostedDate,
                     AdvertiserName = j.Advertiser?.Name,
                     CreatedAt = j.CreatedAt,
-                    UpdatedAt = j.UpdatedAt
+                    UpdatedAt = j.UpdatedAt,
+                    // IsNew is not set here
                 }),
                 TotalCount = totalCount,
                 PageNumber = pageNumber,
@@ -74,7 +75,8 @@ namespace JobTracker.Controllers
                 PostedDate = job.PostedDate,
                 AdvertiserName = job.Advertiser?.Name,
                 CreatedAt = job.CreatedAt,
-                UpdatedAt = job.UpdatedAt
+                UpdatedAt = job.UpdatedAt,
+                // IsNew is not set here
             };
             return Ok(jobDto);
         }
@@ -115,6 +117,44 @@ namespace JobTracker.Controllers
 
             await _jobRepository.DeleteJobAsync(id);
             return NoContent();
+        }
+
+        [HttpGet("new")]
+        public async Task<ActionResult<JobsResponseDto>> GetNewJobs([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+        {
+            var jobs = await _jobRepository.GetNewJobsAsync(pageNumber, pageSize);
+            var totalCount = await _jobRepository.GetNewJobsCountAsync();
+
+            if (totalCount == 0)
+            {
+                return NotFound(new { message = "No new jobs found" });
+            }
+
+            var response = new JobsResponseDto
+            {
+                Jobs = jobs.Select(j => new JobDto
+                {
+                    Id = j.Id,
+                    JobTitle = j.JobTitle,
+                    BusinessName = j.BusinessName,
+                    WorkType = j.WorkType,
+                    JobType = j.JobType,
+                    PayRange = j.PayRange,
+                    Suburb = j.Suburb,
+                    Area = j.Area,
+                    Url = j.Url,
+                    PostedDate = j.PostedDate,
+                    AdvertiserName = j.Advertiser?.Name,
+                    CreatedAt = j.CreatedAt,
+                    UpdatedAt = j.UpdatedAt,
+                    IsNew = true // All jobs returned by this endpoint are new
+                }),
+                TotalCount = totalCount,
+                PageNumber = pageNumber,
+                PageSize = pageSize
+            };
+
+            return Ok(response);
         }
     }
 }
