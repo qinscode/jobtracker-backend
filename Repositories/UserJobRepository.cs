@@ -142,4 +142,9 @@ public class UserJobRepository : IUserJobRepository
     {
         return await _context.Jobs.CountAsync();
     }
+
+    public async Task<int> GetNewJobsCountAsync()
+    {
+        return await _context.Jobs.CountAsync(j => j.IsNew == true);
+    }
 }

@@ -50,7 +50,7 @@ public class UserJobsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<UserJob>> CreateUserJob([FromBody] CreateUserJobDto createUserJobDto)
     {
-        // ��加日志记录
+        // 日志记录
         Console.WriteLine($"Received request: {JsonSerializer.Serialize(createUserJobDto)}");
 
         if (createUserJobDto == null) return BadRequest(new { message = "Invalid request body" });
@@ -191,6 +191,7 @@ public class UserJobsController : ControllerBase
 
         var statusCounts = await _userJobRepository.GetUserJobStatusCountsAsync(userId);
         var totalJobsCount = await _userJobRepository.GetTotalJobsCountAsync();
+        var newJobsCount = await _userJobRepository.GetNewJobsCountAsync();
 
         var result = new UserJobStatusCountResponse
         {
@@ -202,7 +203,8 @@ public class UserJobsController : ControllerBase
                     Count = statusCounts.ContainsKey(status) ? statusCounts[status] : 0
                 })
                 .ToList(),
-            TotalJobsCount = totalJobsCount
+            TotalJobsCount = totalJobsCount,
+            NewJobsCount = newJobsCount
         };
 
         return Ok(result);
