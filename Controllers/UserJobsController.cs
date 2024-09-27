@@ -48,25 +48,39 @@ public class UserJobsController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<UserJob>> CreateUserJob([FromBody] CreateUserJobDto createUserJobDto)
+    public async Task<ActionResult<MessageResponseDto>> CreateUserJob([FromBody] CreateUserJobDto createUserJobDto)
     {
-        // 日志记录
+        var userId = GetUserIdFromToken();
         Console.WriteLine($"Received request: {JsonSerializer.Serialize(createUserJobDto)}");
 
         if (createUserJobDto == null) return BadRequest(new { message = "Invalid request body" });
 
-        var validationResult = await ValidateCreateUserJobDto(createUserJobDto);
+        var existingUserJob = await _userJobRepository.GetUserJobByUserIdAndJobIdAsync(userId, createUserJobDto.JobId);
+        if (existingUserJob != null) 
+        {
+            return Conflict(new { message = "UserJob already exists for this user and job" });
+        }
+
+        var validationResult = await ValidateCreateUserJobDto(createUserJobDto.JobId);
         if (validationResult != null) return validationResult;
 
         var userJob = new UserJob
         {
-            UserId = createUserJobDto.UserId,
+            UserId = userId,
             JobId = createUserJobDto.JobId,
-            Status = createUserJobDto.Status
+            Status = createUserJobDto.Status,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
         };
 
-        var createdUserJob = await _userJobRepository.CreateUserJobAsync(userJob);
-        return CreatedAtAction(nameof(GetUserJob), new { id = createdUserJob.Id }, createdUserJob);
+        await _userJobRepository.CreateUserJobAsync(userJob);
+        
+        var response = new MessageResponseDto
+        {
+            Message = "Successfully created"
+        };
+
+        return Ok(response);
     }
 
     [HttpPut("{id}")]
@@ -252,18 +266,10 @@ public class UserJobsController : ControllerBase
         };
     }
 
-    private async Task<ActionResult> ValidateCreateUserJobDto(CreateUserJobDto createUserJobDto)
+    private async Task<ActionResult> ValidateCreateUserJobDto(int jobId)
     {
-        var user = await _userRepository.GetUserByIdAsync(createUserJobDto.UserId);
-        if (user == null) return BadRequest(new { message = "Invalid UserId" });
-
-        var job = await _jobRepository.GetJobByIdAsync(createUserJobDto.JobId);
+        var job = await _jobRepository.GetJobByIdAsync(jobId);
         if (job == null) return BadRequest(new { message = "Invalid JobId" });
-
-        var existingUserJob =
-            await _userJobRepository.GetUserJobByUserIdAndJobIdAsync(createUserJobDto.UserId, createUserJobDto.JobId);
-        if (existingUserJob != null)
-            return Conflict(new { message = "A UserJob with the same UserId and JobId already exists." });
 
         return null;
     }
