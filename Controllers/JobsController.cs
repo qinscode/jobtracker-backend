@@ -26,7 +26,39 @@ public class JobsController : ControllerBase
         {
             Jobs = jobs.Select(j => new JobDto
             {
-                Id = j.Id, // Changed from string to int
+                Id = j.Id,
+                JobTitle = j.JobTitle ?? "",
+                BusinessName = j.BusinessName ?? "",
+                WorkType = j.WorkType ?? "",
+                JobType = j.JobType ?? "",
+                PayRange = j.PayRange ?? "",
+                Suburb = j.Suburb ?? "",
+                Area = j.Area ?? "",
+                Url = j.Url ?? "",
+                Status = "New",
+                PostedDate = j.PostedDate?.ToString("yyyy-MM-dd") ?? "",
+                JobDescription = j.JobDescription ?? ""
+            }),
+            TotalCount = totalCount,
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        };
+
+        return Ok(response);
+    }
+
+    [HttpGet("active")]
+    public async Task<ActionResult<JobsResponseDto>> GetActiveJobs([FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10)
+    {
+        var jobs = await _jobRepository.GetActiveJobsAsync(pageNumber, pageSize);
+        var totalCount = await _jobRepository.GetActiveJobsCountAsync();
+
+        var response = new JobsResponseDto
+        {
+            Jobs = jobs.Select(j => new JobDto
+            {
+                Id = j.Id,
                 JobTitle = j.JobTitle ?? "",
                 BusinessName = j.BusinessName ?? "",
                 WorkType = j.WorkType ?? "",

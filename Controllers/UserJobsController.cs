@@ -253,8 +253,10 @@ public class UserJobsController : ControllerBase
     {
         return new UserJobDto
         {
+            Id = userJob.Id,
             JobId = userJob.JobId,
             JobTitle = userJob.Job?.JobTitle,
+            BusinessName = userJob.Job?.BusinessName,
             Status = userJob.Status.ToString(),
             CreatedAt = userJob.CreatedAt,
             UpdatedAt = userJob.UpdatedAt
