@@ -147,4 +147,36 @@ public class UserJobRepository : IUserJobRepository
     {
         return await _context.Jobs.CountAsync(j => j.IsNew == true);
     }
+
+    public async Task<IEnumerable<Job>> SearchJobsByTitleAsync(Guid userId, string searchTerm, UserJobStatus? status, int pageNumber, int pageSize)
+    {
+        var query = _context.UserJobs
+            .Where(uj => uj.UserId == userId)
+            .Where(uj => EF.Functions.ILike(uj.Job.JobTitle, $"%{searchTerm}%"));
+
+        if (status.HasValue)
+        {
+            query = query.Where(uj => uj.Status == status.Value);
+        }
+
+        return await query
+            .Select(uj => uj.Job)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+    }
+
+    public async Task<int> CountJobsByTitleAsync(Guid userId, string searchTerm, UserJobStatus? status)
+    {
+        var query = _context.UserJobs
+            .Where(uj => uj.UserId == userId)
+            .Where(uj => EF.Functions.ILike(uj.Job.JobTitle, $"%{searchTerm}%"));
+
+        if (status.HasValue)
+        {
+            query = query.Where(uj => uj.Status == status.Value);
+        }
+
+        return await query.CountAsync();
+    }
 }

@@ -90,4 +90,23 @@ public class JobRepository : IJobRepository
             .Where(j => j.IsNew == true)
             .CountAsync();
     }
+
+    public async Task<IEnumerable<Job>> SearchJobsByTitleAsync(string searchTerm, int pageNumber, int pageSize)
+    {
+        return await _context.Jobs
+            .Where(j => EF.Functions.ILike(j.JobTitle, $"%{searchTerm}%"))
+            .Where(j => j.IsActive == true)
+            .OrderByDescending(j => j.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+    }
+
+    public async Task<int> CountJobsByTitleAsync(string searchTerm)
+    {
+        return await _context.Jobs
+            .Where(j => EF.Functions.ILike(j.JobTitle, $"%{searchTerm}%"))
+            .Where(j => j.IsActive == true)
+            .CountAsync();
+    }
 }

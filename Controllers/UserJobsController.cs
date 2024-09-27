@@ -222,6 +222,43 @@ public class UserJobsController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("search")]
+    public async Task<ActionResult<JobsResponseDto>> SearchUserJobs(
+        [FromQuery] string searchTerm,
+        [FromQuery] UserJobStatus? status,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10)
+    {
+        var userId = GetUserIdFromToken();
+
+        var jobs = await _userJobRepository.SearchJobsByTitleAsync(userId, searchTerm, status, pageNumber, pageSize);
+        var totalCount = await _userJobRepository.CountJobsByTitleAsync(userId, searchTerm, status);
+
+        var response = new JobsResponseDto
+        {
+            Jobs = jobs.Select(j => new JobDto
+            {
+                Id = j.Id,
+                JobTitle = j.JobTitle ?? "",
+                BusinessName = j.BusinessName ?? "",
+                WorkType = j.WorkType ?? "",
+                JobType = j.JobType ?? "",
+                PayRange = j.PayRange ?? "",
+                Suburb = j.Suburb ?? "",
+                Area = j.Area ?? "",
+                Url = j.Url ?? "",
+                Status = status?.ToString() ?? "",
+                PostedDate = j.PostedDate?.ToString("yyyy-MM-dd") ?? "",
+                JobDescription = j.JobDescription ?? ""
+            }),
+            TotalCount = totalCount,
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        };
+
+        return Ok(response);
+    }
+
     private Guid GetUserIdFromToken()
     {
         var token = HttpContext.Request.Headers["Authorization"].FirstOrDefault()?.Split(" ").Last();
