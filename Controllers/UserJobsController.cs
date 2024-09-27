@@ -56,10 +56,7 @@ public class UserJobsController : ControllerBase
         if (createUserJobDto == null) return BadRequest(new { message = "Invalid request body" });
 
         var existingUserJob = await _userJobRepository.GetUserJobByUserIdAndJobIdAsync(userId, createUserJobDto.JobId);
-        if (existingUserJob != null) 
-        {
-            return Conflict(new { message = "UserJob already exists for this user and job" });
-        }
+        if (existingUserJob != null) return Conflict(new { message = "UserJob already exists for this user and job" });
 
         var validationResult = await ValidateCreateUserJobDto(createUserJobDto.JobId);
         if (validationResult != null) return validationResult;
@@ -74,7 +71,7 @@ public class UserJobsController : ControllerBase
         };
 
         await _userJobRepository.CreateUserJobAsync(userJob);
-        
+
         var response = new MessageResponseDto
         {
             Message = "Successfully created"
@@ -186,6 +183,7 @@ public class UserJobsController : ControllerBase
 
         var statuses = new[]
         {
+            UserJobStatus.Applied,
             UserJobStatus.Interviewing,
             UserJobStatus.TechnicalAssessment,
             UserJobStatus.Offered,
@@ -255,12 +253,9 @@ public class UserJobsController : ControllerBase
     {
         return new UserJobDto
         {
-            Id = userJob.Id,
-            UserId = userJob.UserId,
-            UserName = userJob.User?.Username,
             JobId = userJob.JobId,
             JobTitle = userJob.Job?.JobTitle,
-            Status = userJob.Status,
+            Status = userJob.Status.ToString(),
             CreatedAt = userJob.CreatedAt,
             UpdatedAt = userJob.UpdatedAt
         };

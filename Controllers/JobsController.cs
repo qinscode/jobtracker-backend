@@ -26,7 +26,7 @@ public class JobsController : ControllerBase
         {
             Jobs = jobs.Select(j => new JobDto
             {
-                Id = j.Id,  // Changed from string to int
+                Id = j.Id, // Changed from string to int
                 JobTitle = j.JobTitle ?? "",
                 BusinessName = j.BusinessName ?? "",
                 WorkType = j.WorkType ?? "",
@@ -48,13 +48,13 @@ public class JobsController : ControllerBase
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<JobDto>> GetJob(int id)  // Changed from Guid to int
+    public async Task<ActionResult<JobDto>> GetJob(int id) // Changed from Guid to int
     {
         var job = await _jobRepository.GetJobByIdAsync(id);
         if (job == null) return NotFound(new { message = $"Job with id {id} not found" });
         var jobDto = new JobDto
         {
-            Id = job.Id,  // Changed from string to int
+            Id = job.Id, // Changed from string to int
             JobTitle = job.JobTitle,
             BusinessName = job.BusinessName,
             WorkType = job.WorkType,
@@ -78,7 +78,7 @@ public class JobsController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateJob(int id, Job job)  // Changed from Guid to int
+    public async Task<IActionResult> UpdateJob(int id, Job job) // Changed from Guid to int
     {
         if (id != job.Id) return BadRequest(new { message = "Id in URL does not match Id in request body" });
 
@@ -90,7 +90,7 @@ public class JobsController : ControllerBase
     }
 
     [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteJob(int id)  // Changed from Guid to int
+    public async Task<IActionResult> DeleteJob(int id) // Changed from Guid to int
     {
         var existingJob = await _jobRepository.GetJobByIdAsync(id);
         if (existingJob == null) return NotFound(new { message = $"Job with id {id} not found" });
@@ -106,13 +106,13 @@ public class JobsController : ControllerBase
         var jobs = await _jobRepository.GetNewJobsAsync(pageNumber, pageSize);
         var totalCount = await _jobRepository.GetNewJobsCountAsync();
 
-        if (totalCount == 0) return NotFound(new { message = "No new jobs found" });
+        // if (totalCount == 0) return NotFound(new { message = "No new jobs found" });
 
         var response = new JobsResponseDto
         {
             Jobs = jobs.Select(j => new JobDto
             {
-                Id = j.Id,  // Changed from string to int
+                Id = j.Id, // Changed from string to int
                 JobTitle = j.JobTitle,
                 BusinessName = j.BusinessName,
                 WorkType = j.WorkType,
