@@ -1,4 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
+using System.Text.Json;
 using JobTracker.Models;
 using JobTracker.Repositories;
 using Microsoft.AspNetCore.Authorization;
@@ -50,12 +51,9 @@ public class UserJobsController : ControllerBase
     public async Task<ActionResult<UserJob>> CreateUserJob([FromBody] CreateUserJobDto createUserJobDto)
     {
         // 添加日志记录
-        Console.WriteLine($"Received request: {System.Text.Json.JsonSerializer.Serialize(createUserJobDto)}");
+        Console.WriteLine($"Received request: {JsonSerializer.Serialize(createUserJobDto)}");
 
-        if (createUserJobDto == null)
-        {
-            return BadRequest(new { message = "Invalid request body" });
-        }
+        if (createUserJobDto == null) return BadRequest(new { message = "Invalid request body" });
 
         var validationResult = await ValidateCreateUserJobDto(createUserJobDto);
         if (validationResult != null) return validationResult;
@@ -74,13 +72,13 @@ public class UserJobsController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateUserJob(Guid id, UpdateUserJobDto updateUserJobDto)
     {
-        if (id != updateUserJobDto.Id)
-            return BadRequest(new { message = "Id in URL does not match Id in request body" });
+        var existingUserJob = await _userJobRepository.GetUserJobByIdAsync(id);
+        if (existingUserJob == null)
+            return NotFound(new { message = $"UserJob with id {id} not found" });
 
         var validationResult = await ValidateUpdateUserJobDto(id, updateUserJobDto);
         if (validationResult != null) return validationResult;
 
-        var existingUserJob = await _userJobRepository.GetUserJobByIdAsync(id);
         UpdateUserJobFromDto(existingUserJob, updateUserJobDto);
 
         await _userJobRepository.UpdateUserJobAsync(existingUserJob);
@@ -97,15 +95,25 @@ public class UserJobsController : ControllerBase
         return NoContent();
     }
 
-    [HttpPut("{id}/status")]
-    public async Task<IActionResult> UpdateUserJobStatus(Guid id, [FromBody] UserJobStatus newStatus)
+    [HttpPut("{jobId}/status/{status}")]
+    [Authorize]
+    public async Task<IActionResult> UpdateUserJobStatus(int jobId, UserJobStatus status)
     {
-        var userJob = await _userJobRepository.GetUserJobByIdAsync(id);
-        if (userJob == null) return NotFound(new { message = $"UserJob with id {id} not found" });
+        // Get the user ID from the token
+        var userId = GetUserIdFromToken();
 
-        userJob.Status = newStatus;
+        // Find the UserJob
+        var userJob = await _userJobRepository.GetUserJobByUserIdAndJobIdAsync(userId, jobId);
+
+        if (userJob == null) return NotFound(new { message = $"UserJob not found for user {userId} and job {jobId}" });
+
+        // Update the status
+        userJob.Status = status;
         userJob.UpdatedAt = DateTime.UtcNow;
+
+        // Save the changes
         await _userJobRepository.UpdateUserJobAsync(userJob);
+
         return NoContent();
     }
 
@@ -136,7 +144,7 @@ public class UserJobsController : ControllerBase
         {
             Jobs = jobs.Select(j => new JobDto
             {
-                Id = j.Id,  // Changed from string to int
+                Id = j.Id, // Changed from string to int
                 JobTitle = j.JobTitle ?? "",
                 BusinessName = j.BusinessName ?? "",
                 WorkType = j.WorkType ?? "",
@@ -239,26 +247,16 @@ public class UserJobsController : ControllerBase
         var existingUserJob = await _userJobRepository.GetUserJobByIdAsync(id);
         if (existingUserJob == null) return NotFound(new { message = $"UserJob with id {id} not found" });
 
-        var user = await _userRepository.GetUserByIdAsync(updateUserJobDto.UserId);
-        if (user == null) return BadRequest(new { message = "Invalid UserId" });
-
         var job = await _jobRepository.GetJobByIdAsync(updateUserJobDto.JobId);
         if (job == null) return BadRequest(new { message = "Invalid JobId" });
-
-        if (!Enum.TryParse<UserJobStatus>(updateUserJobDto.Status, true, out _))
-            return BadRequest(new { message = $"Invalid status value: {updateUserJobDto.Status}" });
 
         return null;
     }
 
     private void UpdateUserJobFromDto(UserJob userJob, UpdateUserJobDto updateUserJobDto)
     {
-        userJob.UserId = updateUserJobDto.UserId;
         userJob.JobId = updateUserJobDto.JobId;
-        if (Enum.TryParse<UserJobStatus>(updateUserJobDto.Status, true, out var status))
-            userJob.Status = status;
-        else
-            throw new ArgumentException($"Invalid status value: {updateUserJobDto.Status}");
+        userJob.Status = updateUserJobDto.Status;
         userJob.UpdatedAt = DateTime.UtcNow;
     }
 }
