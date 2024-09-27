@@ -67,7 +67,8 @@ public class UserJobRepository : IUserJobRepository
             .FirstOrDefaultAsync(uj => uj.UserId == userId && uj.JobId == jobId);
     }
 
-    public async Task<IEnumerable<UserJob>> GetUserJobsByUserIdAndStatusAsync(Guid userId, UserJobStatus status, int pageNumber, int pageSize)
+    public async Task<IEnumerable<UserJob>> GetUserJobsByUserIdAndStatusAsync(Guid userId, UserJobStatus status,
+        int pageNumber, int pageSize)
     {
         return await _context.UserJobs
             .Include(uj => uj.Job)
@@ -94,15 +95,8 @@ public class UserJobRepository : IUserJobRepository
             .ToListAsync();
     }
 
-    public async Task<IEnumerable<UserJob>> GetAllUserJobsAsync()
-    {
-        return await _context.UserJobs
-            .Include(uj => uj.User)
-            .Include(uj => uj.Job)
-            .ToListAsync();
-    }
-
-    public async Task<IEnumerable<Job>> GetJobsByUserIdAndStatusAsync(Guid userId, UserJobStatus status, int pageNumber, int pageSize)
+    public async Task<IEnumerable<Job>> GetJobsByUserIdAndStatusAsync(Guid userId, UserJobStatus status, int pageNumber,
+        int pageSize)
     {
         return await _context.UserJobs
             .Where(uj => uj.UserId == userId && uj.Status == status)
@@ -115,7 +109,7 @@ public class UserJobRepository : IUserJobRepository
     public async Task<int> GetJobsCountByUserIdAndStatusAsync(Guid userId, UserJobStatus status)
     {
         return await _context.UserJobs
-            .CountAsync(uj => uj.UserId == userId && uj.Status == status);
+            .CountAsync(uj => uj.UserId == userId && uj.Status == status && uj.Job.IsActive == true);
     }
 
     public async Task<Dictionary<UserJobStatus, int>> GetUserJobStatusCountsAsync(Guid userId)
@@ -128,19 +122,15 @@ public class UserJobRepository : IUserJobRepository
 
         // Ensure all statuses are included, even if count is 0
         foreach (UserJobStatus status in Enum.GetValues(typeof(UserJobStatus)))
-        {
             if (!statusCounts.ContainsKey(status))
-            {
                 statusCounts[status] = 0;
-            }
-        }
 
         return statusCounts;
     }
 
     public async Task<int> GetTotalJobsCountAsync()
     {
-        return await _context.Jobs.CountAsync();
+        return await _context.Jobs.Where(j => j.IsActive == true).CountAsync();
     }
 
     public async Task<int> GetNewJobsCountAsync()
@@ -148,16 +138,14 @@ public class UserJobRepository : IUserJobRepository
         return await _context.Jobs.CountAsync(j => j.IsNew == true);
     }
 
-    public async Task<IEnumerable<Job>> SearchJobsByTitleAsync(Guid userId, string searchTerm, UserJobStatus? status, int pageNumber, int pageSize)
+    public async Task<IEnumerable<Job>> SearchJobsByTitleAsync(Guid userId, string searchTerm, UserJobStatus? status,
+        int pageNumber, int pageSize)
     {
         var query = _context.UserJobs
             .Where(uj => uj.UserId == userId)
             .Where(uj => EF.Functions.ILike(uj.Job.JobTitle, $"%{searchTerm}%"));
 
-        if (status.HasValue)
-        {
-            query = query.Where(uj => uj.Status == status.Value);
-        }
+        if (status.HasValue) query = query.Where(uj => uj.Status == status.Value);
 
         return await query
             .Select(uj => uj.Job)
@@ -172,11 +160,16 @@ public class UserJobRepository : IUserJobRepository
             .Where(uj => uj.UserId == userId)
             .Where(uj => EF.Functions.ILike(uj.Job.JobTitle, $"%{searchTerm}%"));
 
-        if (status.HasValue)
-        {
-            query = query.Where(uj => uj.Status == status.Value);
-        }
+        if (status.HasValue) query = query.Where(uj => uj.Status == status.Value);
 
         return await query.CountAsync();
+    }
+
+    public async Task<IEnumerable<UserJob>> GetAllUserJobsAsync()
+    {
+        return await _context.UserJobs
+            .Include(uj => uj.User)
+            .Include(uj => uj.Job)
+            .ToListAsync();
     }
 }
