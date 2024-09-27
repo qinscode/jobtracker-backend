@@ -137,4 +137,9 @@ public class UserJobRepository : IUserJobRepository
 
         return statusCounts;
     }
+
+    public async Task<int> GetTotalJobsCountAsync()
+    {
+        return await _context.Jobs.CountAsync();
+    }
 }

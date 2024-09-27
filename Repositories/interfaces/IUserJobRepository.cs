@@ -19,5 +19,6 @@ namespace JobTracker.Repositories
         Task<int> GetJobsCountByUserIdAndStatusAsync(Guid userId, UserJobStatus status);
 
         Task<Dictionary<UserJobStatus, int>> GetUserJobStatusCountsAsync(Guid userId);
+        Task<int> GetTotalJobsCountAsync();
     }
 }
