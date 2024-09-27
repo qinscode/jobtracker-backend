@@ -164,4 +164,38 @@ public class JobsController : ControllerBase
 
         return Ok(response);
     }
+
+    [HttpGet("search")]
+    public async Task<ActionResult<JobsResponseDto>> SearchJobs(
+        [FromQuery] string searchTerm,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10)
+    {
+        var jobs = await _jobRepository.SearchJobsByTitleAsync(searchTerm, pageNumber, pageSize);
+        var totalCount = await _jobRepository.CountJobsByTitleAsync(searchTerm);
+
+        var response = new JobsResponseDto
+        {
+            Jobs = jobs.Select(j => new JobDto
+            {
+                Id = j.Id,
+                JobTitle = j.JobTitle ?? "",
+                BusinessName = j.BusinessName ?? "",
+                WorkType = j.WorkType ?? "",
+                JobType = j.JobType ?? "",
+                PayRange = j.PayRange ?? "",
+                Suburb = j.Suburb ?? "",
+                Area = j.Area ?? "",
+                Url = j.Url ?? "",
+                Status = "Active",
+                PostedDate = j.PostedDate?.ToString("yyyy-MM-dd") ?? "",
+                JobDescription = j.JobDescription ?? ""
+            }),
+            TotalCount = totalCount,
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        };
+
+        return Ok(response);
+    }
 }

@@ -14,4 +14,7 @@ public interface IJobRepository
     Task DeleteJobAsync(int id);  // Changed from Guid to int
     Task<IEnumerable<Job>> GetNewJobsAsync(int pageNumber, int pageSize);
     Task<int> GetNewJobsCountAsync();
+
+    Task<IEnumerable<Job>> SearchJobsByTitleAsync(string searchTerm, int pageNumber, int pageSize);
+    Task<int> CountJobsByTitleAsync(string searchTerm);
 }
