@@ -184,6 +184,42 @@ public class UserJobsController : ControllerBase
         return Ok(userJobDtos);
     }
 
+    [HttpGet("status-counts/{userId}")]
+    public async Task<ActionResult<IEnumerable<UserJobStatusCountDto>>> GetUserJobStatusCounts(Guid userId)
+    {
+        var statusCounts = await _userJobRepository.GetUserJobStatusCountsAsync(userId);
+        
+        var result = Enum.GetValues(typeof(UserJobStatus))
+            .Cast<UserJobStatus>()
+            .Select(status => new UserJobStatusCountDto
+            {
+                Status = status,
+                Count = statusCounts.ContainsKey(status) ? statusCounts[status] : 0
+            })
+            .ToList();
+
+        return Ok(result);
+    }
+
+    [HttpGet("count")]
+    public async Task<ActionResult<IEnumerable<UserJobStatusCountDto>>> GetUserJobStatusCounts()
+    {
+        var userId = GetUserIdFromToken();
+
+        var statusCounts = await _userJobRepository.GetUserJobStatusCountsAsync(userId);
+        
+        var result = Enum.GetValues(typeof(UserJobStatus))
+            .Cast<UserJobStatus>()
+            .Select(status => new UserJobStatusCountDto
+            {
+                Status = status,
+                Count = statusCounts.ContainsKey(status) ? statusCounts[status] : 0
+            })
+            .ToList();
+
+        return Ok(result);
+    }
+
     private Guid GetUserIdFromToken()
     {
         var token = HttpContext.Request.Headers["Authorization"].FirstOrDefault()?.Split(" ").Last();

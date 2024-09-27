@@ -117,4 +117,24 @@ public class UserJobRepository : IUserJobRepository
         return await _context.UserJobs
             .CountAsync(uj => uj.UserId == userId && uj.Status == status);
     }
+
+    public async Task<Dictionary<UserJobStatus, int>> GetUserJobStatusCountsAsync(Guid userId)
+    {
+        var statusCounts = await _context.UserJobs
+            .Where(uj => uj.UserId == userId)
+            .GroupBy(uj => uj.Status)
+            .Select(g => new { Status = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Status, x => x.Count);
+
+        // Ensure all statuses are included, even if count is 0
+        foreach (UserJobStatus status in Enum.GetValues(typeof(UserJobStatus)))
+        {
+            if (!statusCounts.ContainsKey(status))
+            {
+                statusCounts[status] = 0;
+            }
+        }
+
+        return statusCounts;
+    }
 }
