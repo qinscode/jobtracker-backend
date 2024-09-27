@@ -50,7 +50,7 @@ public class UserJobsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<UserJob>> CreateUserJob([FromBody] CreateUserJobDto createUserJobDto)
     {
-        // 添加日志记录
+        // ��加日志记录
         Console.WriteLine($"Received request: {JsonSerializer.Serialize(createUserJobDto)}");
 
         if (createUserJobDto == null) return BadRequest(new { message = "Invalid request body" });
@@ -184,22 +184,26 @@ public class UserJobsController : ControllerBase
         return Ok(userJobDtos);
     }
 
-
     [HttpGet("count")]
-    public async Task<ActionResult<IEnumerable<UserJobStatusCountDto>>> GetUserJobStatusCounts()
+    public async Task<ActionResult<UserJobStatusCountResponse>> GetUserJobStatusCounts()
     {
         var userId = GetUserIdFromToken();
 
         var statusCounts = await _userJobRepository.GetUserJobStatusCountsAsync(userId);
+        var totalJobsCount = await _userJobRepository.GetTotalJobsCountAsync();
 
-        var result = Enum.GetValues(typeof(UserJobStatus))
-            .Cast<UserJobStatus>()
-            .Select(status => new UserJobStatusCountDto
-            {
-                Status = status.ToString(), // Convert enum to string
-                Count = statusCounts.ContainsKey(status) ? statusCounts[status] : 0
-            })
-            .ToList();
+        var result = new UserJobStatusCountResponse
+        {
+            StatusCounts = Enum.GetValues(typeof(UserJobStatus))
+                .Cast<UserJobStatus>()
+                .Select(status => new UserJobStatusCountDto
+                {
+                    Status = status.ToString(),
+                    Count = statusCounts.ContainsKey(status) ? statusCounts[status] : 0
+                })
+                .ToList(),
+            TotalJobsCount = totalJobsCount
+        };
 
         return Ok(result);
     }
