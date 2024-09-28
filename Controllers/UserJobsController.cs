@@ -55,6 +55,12 @@ public class UserJobsController : ControllerBase
 
         if (createUserJobDto == null) return BadRequest(new { message = "Invalid request body" });
 
+        // Modify this line to parse the Status string to UserJobStatus enum
+        if (!Enum.TryParse<UserJobStatus>(createUserJobDto.Status, true, out var status))
+        {
+            return BadRequest(new { message = "Invalid Status value" });
+        }
+
         var existingUserJob = await _userJobRepository.GetUserJobByUserIdAndJobIdAsync(userId, createUserJobDto.JobId);
         if (existingUserJob != null) return Conflict(new { message = "UserJob already exists for this user and job" });
 
@@ -65,7 +71,7 @@ public class UserJobsController : ControllerBase
         {
             UserId = userId,
             JobId = createUserJobDto.JobId,
-            Status = createUserJobDto.Status,
+            Status = status, // Use the parsed status here
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
