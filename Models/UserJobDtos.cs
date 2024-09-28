@@ -14,7 +14,7 @@ public class UserJobDto
 public class CreateUserJobDto
 {
     public int JobId { get; set; }
-    public UserJobStatus Status { get; set; }
+    public string Status { get; set; } // Change this to string
 }
 
 public class UpdateUserJobDto
