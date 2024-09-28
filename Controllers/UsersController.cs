@@ -31,7 +31,7 @@ public class UsersController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<UserDto>> CreateUser(User user)
     {
-        if (string.IsNullOrEmpty(user.PasswordHash)) return BadRequest("Password is required");
+        if (string.IsNullOrEmpty(user.Password)) return BadRequest("Password is required");
 
         // Check if the email already exists
         var existingUser = await _userRepository.GetUserByEmailAsync(user.Email);

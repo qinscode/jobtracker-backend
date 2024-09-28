@@ -34,9 +34,9 @@ namespace JobTracker.Repositories
         public async Task<User> CreateUserAsync(User user)
         {
             // Ensure the password is hashed before saving
-            if (!string.IsNullOrEmpty(user.PasswordHash))
+            if (!string.IsNullOrEmpty(user.Password))
             {
-                user.SetPassword(user.PasswordHash);
+                user.SetPassword(user.Password);
             }
 
             _context.Users.Add(user);
@@ -52,7 +52,7 @@ namespace JobTracker.Repositories
                 throw new KeyNotFoundException($"User with id {id} not found.");
             }
 
-            var blacklist = new HashSet<string> { "Id", "CreatedAt", "PasswordHash" };
+            var blacklist = new HashSet<string> { "Id", "CreatedAt", "Password" };
 
             var properties = typeof(User).GetProperties();
 
@@ -70,9 +70,9 @@ namespace JobTracker.Repositories
             }
 
             // Handle password update separately and securely
-            if (!string.IsNullOrEmpty(updatedUser.PasswordHash))
+            if (!string.IsNullOrEmpty(updatedUser.Password))
             {
-                user.SetPassword(updatedUser.PasswordHash);
+                user.SetPassword(updatedUser.Password);
             }
 
             user.UpdatedAt = DateTime.UtcNow;
