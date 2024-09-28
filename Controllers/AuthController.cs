@@ -37,6 +37,29 @@ public class AuthController : ControllerBase
         return Ok(new { Token = token });
     }
 
+    [HttpPost("register")]
+    public async Task<IActionResult> Register([FromBody] RegisterModel model)
+    {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+
+        var existingUser = await _userRepository.GetUserByEmailAsync(model.Email);
+        if (existingUser != null)
+            return BadRequest(new { message = "User with this email already exists" });
+
+        var newUser = new User
+        {
+            Email = model.Email,
+            Username = model.Username
+        };
+        newUser.SetPassword(model.Password);
+
+        await _userRepository.CreateUserAsync(newUser);
+
+        var token = GenerateJwtToken(newUser);
+
+        return Ok(new { Token = token });
+    }
+
     private string GenerateJwtToken(User user)
     {
         var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
@@ -72,5 +95,19 @@ public class LoginModel
     public string Email { get; set; }
 
     [Required(ErrorMessage = "Password is required")]
+    public string Password { get; set; }
+}
+
+public class RegisterModel
+{
+    [Required(ErrorMessage = "Email is required")]
+    [EmailAddress(ErrorMessage = "Invalid email address")]
+    public string Email { get; set; }
+
+    [Required(ErrorMessage = "Username is required")]
+    public string Username { get; set; }
+
+    [Required(ErrorMessage = "Password is required")]
+    [MinLength(6, ErrorMessage = "Password must be at least 6 characters long")]
     public string Password { get; set; }
 }
