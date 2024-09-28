@@ -1,7 +1,5 @@
 using System.Text;
-using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Text.RegularExpressions;
 using JobTracker.Data;
 using JobTracker.Repositories;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -18,6 +16,14 @@ builder.Services.AddControllers()
     });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+builder.WebHost.ConfigureKestrel(serverOptions =>
+{
+    if (builder.Environment.IsDevelopment())
+        serverOptions.ListenAnyIP(5051);
+    else
+        serverOptions.ListenAnyIP(80);
+});
 
 // Configure JWT authentication
 builder.Services.AddCors(options =>
@@ -54,6 +60,12 @@ builder.Services.AddScoped<IUserJobRepository, UserJobRepository>();
 
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<JobTrackerContext>();
+    dbContext.Database.Migrate(); // 自动执行数据库迁移
+}
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -61,8 +73,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
-
+if (!app.Environment.IsDevelopment()) app.UseHttpsRedirection(); // 强制使用HTTPS
 // Enable CORS
 app.UseCors("AllowAll");
 
@@ -72,19 +83,3 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
-
-// 自定义 SnakeCaseNamingPolicy 类
-public class SnakeCaseNamingPolicy : JsonNamingPolicy
-{
-    public override string ConvertName(string name)
-    {
-        return string.IsNullOrEmpty(name)
-            ? name
-            : Regex.Replace(
-                name,
-                @"([a-z0-9])([A-Z])",
-                "$1_$2",
-                RegexOptions.Compiled,
-                TimeSpan.FromMilliseconds(100)).ToLower();
-    }
-}
