@@ -109,7 +109,7 @@ public class UserJobRepository : IUserJobRepository
     public async Task<int> GetJobsCountByUserIdAndStatusAsync(Guid userId, UserJobStatus status)
     {
         return await _context.UserJobs
-            .CountAsync(uj => uj.UserId == userId && uj.Status == status && uj.Job.IsActive == true);
+            .CountAsync(uj => uj.UserId == userId && uj.Status == status );
     }
 
     public async Task<Dictionary<UserJobStatus, int>> GetUserJobStatusCountsAsync(Guid userId)
