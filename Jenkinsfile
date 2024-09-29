@@ -37,7 +37,7 @@ pipeline {
             steps {
                 script {
                     // Deploy using Docker Compose
-                    sh 'docker-compose -f $DOCKER_COMPOSE_FILE --env-file .env up -d'
+                    sh '/usr/local/bin/docker-compose -f docker-compose.yml --env-file .env up -d'
                 }
             }
         }
