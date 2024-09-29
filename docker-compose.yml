@@ -1,5 +1,3 @@
-# Remove the 'version' field at the top of the file
-
 services:
   jobtracker-api:
     build: .
