@@ -7,7 +7,8 @@ pipeline {
         JWT_ISSUER = 'JobTrackerAPI'
         JWT_AUDIENCE = 'JobTrackerClient'
         API_PORT = '5503'
-        DOCKER_COMPOSE_FILE = 'docker-compose.yml'
+        DOCKER_IMAGE_NAME = 'jobtracker-backend'
+        DOCKER_IMAGE_TAG = "${BUILD_NUMBER}"
     }
 
     stages {
@@ -17,39 +18,35 @@ pipeline {
             }
         }
 
-        stage('Setup Environment') {
+        stage('Build Docker Image') {
             steps {
                 script {
-                    // Create .env file
-                    writeFile file: '.env', text: """
-                        POSTGRES_USER=${POSTGRES_CREDS_USR}
-                        POSTGRES_PASSWORD=${POSTGRES_CREDS_PSW}
-                        JWT_KEY=${JWT_SECRET}
-                        JWT_ISSUER=${JWT_ISSUER}
-                        JWT_AUDIENCE=${JWT_AUDIENCE}
-                        API_PORT=${API_PORT}
-                    """
+                    docker.build("${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}")
                 }
             }
         }
 
-        stage('Deploy with Docker Compose') {
+        stage('Deploy') {
             steps {
                 script {
-                    // Deploy using Docker Compose
-                    sh '/usr/local/bin/docker-compose -f ${DOCKER_COMPOSE_FILE} --env-file .env up -d'
+                    sh """
+                        docker stop ${DOCKER_IMAGE_NAME} || true
+                        docker rm ${DOCKER_IMAGE_NAME} || true
+                        docker run -d --name ${DOCKER_IMAGE_NAME} \
+                            -p ${API_PORT}:80 \
+                            -e ASPNETCORE_ENVIRONMENT=Production \
+                            -e ConnectionStrings__DefaultConnection="Host=your_db_host;Database=JobTracker;Username=${POSTGRES_CREDS_USR};Password=${POSTGRES_CREDS_PSW}" \
+                            -e Jwt__Key=${JWT_SECRET} \
+                            -e Jwt__Issuer=${JWT_ISSUER} \
+                            -e Jwt__Audience=${JWT_AUDIENCE} \
+                            ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}
+                    """
                 }
             }
         }
     }
 
     post {
-        always {
-            script {
-                // Clean up
-                sh 'rm -f .env'
-            }
-        }
         success {
             echo 'Deployment successful!'
         }
