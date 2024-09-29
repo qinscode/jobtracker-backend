@@ -21,14 +21,13 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    docker.build("${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}")
+                    sh "docker build -t ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} ."
                 }
             }
         }
 
         stage('Deploy') {
             steps {
-                script {
                     sh """
                         docker stop ${DOCKER_IMAGE_NAME} || true
                         docker rm ${DOCKER_IMAGE_NAME} || true
@@ -41,7 +40,6 @@ pipeline {
                             -e Jwt__Audience=${JWT_AUDIENCE} \
                             ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}
                     """
-                }
             }
         }
     }
