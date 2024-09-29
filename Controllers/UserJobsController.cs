@@ -57,9 +57,7 @@ public class UserJobsController : ControllerBase
 
         // Modify this line to parse the Status string to UserJobStatus enum
         if (!Enum.TryParse<UserJobStatus>(createUserJobDto.Status, true, out var status))
-        {
             return BadRequest(new { message = "Invalid Status value" });
-        }
 
         var existingUserJob = await _userJobRepository.GetUserJobByUserIdAndJobIdAsync(userId, createUserJobDto.JobId);
         if (existingUserJob != null) return Conflict(new { message = "UserJob already exists for this user and job" });
@@ -154,7 +152,10 @@ public class UserJobsController : ControllerBase
     {
         var userGuid = GetUserIdFromToken();
 
+        Console.WriteLine($"Fuck UserGuid: {userGuid}");
+
         var jobs = await _userJobRepository.GetJobsByUserIdAndStatusAsync(userGuid, status, pageNumber, pageSize);
+        Console.WriteLine($"Jobs: {JsonSerializer.Serialize(jobs)}");
         var totalCount = await _userJobRepository.GetJobsCountByUserIdAndStatusAsync(userGuid, status);
 
         var response = new JobsResponseDto
@@ -178,6 +179,9 @@ public class UserJobsController : ControllerBase
             PageNumber = pageNumber,
             PageSize = pageSize
         };
+
+        Console.WriteLine($"Response: {JsonSerializer.Serialize(response)}");
+        Console.WriteLine($"Jobs: {JsonSerializer.Serialize(response.Jobs)}");
 
         return Ok(response);
     }
@@ -276,7 +280,8 @@ public class UserJobsController : ControllerBase
 
         if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userGuid))
             throw new UnauthorizedAccessException("Invalid or missing user ID in the token");
-
+        Console.WriteLine($"User ID: {userGuid}");
+        Console.WriteLine($"Token: {token}");
         return userGuid;
     }
 
