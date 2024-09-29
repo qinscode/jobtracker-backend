@@ -36,6 +36,7 @@ pipeline {
                 script {
                     // Use the .env file and run docker-compose
                     sh '/usr/local/bin/docker-compose -f docker-compose.yml --env-file .env up -d'
+
                 }
             }
         }
