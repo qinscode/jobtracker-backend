@@ -35,7 +35,7 @@ pipeline {
                         docker run -d --name ${DOCKER_IMAGE_NAME} \
                             -p ${API_PORT}:80 \
                             -e ASPNETCORE_ENVIRONMENT=Production \
-                            -e ConnectionStrings__DefaultConnection="Host=your_db_host;Database=JobTracker;Username=${POSTGRES_CREDS_USR};Password=${POSTGRES_CREDS_PSW}" \
+                            -e ConnectionStrings__DefaultConnection="Host=127.0.0.1;Database=JobTracker;Username=${POSTGRES_CREDS_USR};Password=${POSTGRES_CREDS_PSW}" \
                             -e Jwt__Key=${JWT_SECRET} \
                             -e Jwt__Issuer=${JWT_ISSUER} \
                             -e Jwt__Audience=${JWT_AUDIENCE} \
