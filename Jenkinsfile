@@ -21,14 +21,14 @@ pipeline {
             steps {
                 script {
                     // Create .env file
-                    sh '''
-                        echo "POSTGRES_USER=$POSTGRES_CREDS_USR" > .env
-                        echo "POSTGRES_PASSWORD=$POSTGRES_CREDS_PSW" >> .env
-                        echo "JWT_KEY=$JWT_SECRET" >> .env
-                        echo "JWT_ISSUER=$JWT_ISSUER" >> .env
-                        echo "JWT_AUDIENCE=$JWT_AUDIENCE" >> .env
-                        echo "API_PORT=$API_PORT" >> .env
-                    '''
+                    writeFile file: '.env', text: """
+                        POSTGRES_USER=${POSTGRES_CREDS_USR}
+                        POSTGRES_PASSWORD=${POSTGRES_CREDS_PSW}
+                        JWT_KEY=${JWT_SECRET}
+                        JWT_ISSUER=${JWT_ISSUER}
+                        JWT_AUDIENCE=${JWT_AUDIENCE}
+                        API_PORT=${API_PORT}
+                    """
                 }
             }
         }
@@ -37,7 +37,7 @@ pipeline {
             steps {
                 script {
                     // Deploy using Docker Compose
-                    sh '/usr/local/bin/docker-compose -f docker-compose.yml --env-file .env up -d'
+                    sh '/usr/local/bin/docker-compose -f ${DOCKER_COMPOSE_FILE} --env-file .env up -d'
                 }
             }
         }
