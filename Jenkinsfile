@@ -6,9 +6,11 @@ pipeline {
         JWT_SECRET = credentials('jwt-secret')
         JWT_ISSUER = 'JobTrackerAPI'
         JWT_AUDIENCE = 'JobTrackerClient'
-        API_PORT = '5503'
-        DOCKER_IMAGE_NAME = 'jobtracker-backend'
-        DOCKER_IMAGE_TAG = "${BUILD_NUMBER}"
+        API_PORT = '5052'
+        DOCKER_COMPOSE_FILE = 'docker-compose.yml'
+        DOCKER_COMPOSE_PATH = '/usr/local/bin/docker-compose'
+        // Add Docker registry credentials if needed
+        DOCKER_CREDS = credentials('docker-registry-credentials')
     }
 
     stages {
@@ -18,31 +20,41 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Setup and Deploy') {
             steps {
-                sh "docker build -t ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} ."
-            }
-        }
+                script {
+                    // Use the 'any' label to run on any available node
+                    node('any') {
+                        // Setup Environment
+                        sh '''
+                            echo "POSTGRES_USER=$POSTGRES_CREDS_USR" > .env
+                            echo "POSTGRES_PASSWORD=$POSTGRES_CREDS_PSW" >> .env
+                            echo "JWT_KEY=$JWT_SECRET" >> .env
+                            echo "JWT_ISSUER=$JWT_ISSUER" >> .env
+                            echo "JWT_AUDIENCE=$JWT_AUDIENCE" >> .env
+                            echo "API_PORT=$API_PORT" >> .env
+                        '''
 
-        stage('Deploy') {
-            steps {
-                sh '''
-                    docker stop ${DOCKER_IMAGE_NAME} || true
-                    docker rm ${DOCKER_IMAGE_NAME} || true
-                    docker run -d --name ${DOCKER_IMAGE_NAME} \
-                        --network=host \
-                        -e ASPNETCORE_ENVIRONMENT=Production \
-                        -e ConnectionStrings__DefaultConnection="Host=127.0.0.1;Database=JobTracker;Username=$POSTGRES_CREDS_USR;Password=$POSTGRES_CREDS_PSW" \
-                        -e Jwt__Key=$JWT_SECRET \
-                        -e Jwt__Issuer=${JWT_ISSUER} \
-                        -e Jwt__Audience=${JWT_AUDIENCE} \
-                        ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}
-                '''
+                        // Docker Login (if needed)
+                        sh 'echo $DOCKER_CREDS_PSW | docker login -u $DOCKER_CREDS_USR --password-stdin'
+
+                        // Deploy with Docker Compose
+                        sh '${DOCKER_COMPOSE_PATH} -f $DOCKER_COMPOSE_FILE --env-file .env up -d'
+                    }
+                }
             }
         }
     }
 
     post {
+        always {
+            script {
+                node('any') {
+                    sh 'rm -f .env'
+                    sh 'docker logout'
+                }
+            }
+        }
         success {
             echo 'Deployment successful!'
         }
