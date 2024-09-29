@@ -27,7 +27,7 @@ builder.Services.AddSwaggerGen();
 
 builder.WebHost.ConfigureKestrel(serverOptions =>
 {
-    serverOptions.ListenAnyIP(builder.Configuration.GetValue("API_PORT", 80));
+    serverOptions.ListenAnyIP(builder.Configuration.GetValue("API_PORT", 5503));
 });
 
 // Configure JWT authentication

@@ -6,7 +6,7 @@ pipeline {
         JWT_SECRET = credentials('jwt-secret')
         JWT_ISSUER = 'JobTrackerAPI'
         JWT_AUDIENCE = 'JobTrackerClient'
-        API_PORT = '5052'
+        API_PORT = '5503'
         DOCKER_COMPOSE_FILE = 'docker-compose.yml'
     }
 
