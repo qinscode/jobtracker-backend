@@ -20,26 +20,24 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                script {
-                    sh "docker build -t ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} ."
-                }
+                sh "docker build -t ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} ."
             }
         }
 
         stage('Deploy') {
             steps {
-                    sh """
-                        docker stop ${DOCKER_IMAGE_NAME} || true
-                        docker rm ${DOCKER_IMAGE_NAME} || true
-                        docker run -d --name ${DOCKER_IMAGE_NAME} \
-                            -p ${API_PORT}:80 \
-                            -e ASPNETCORE_ENVIRONMENT=Production \
-                            -e ConnectionStrings__DefaultConnection="Host=127.0.0.1;Database=JobTracker;Username=${POSTGRES_CREDS_USR};Password=${POSTGRES_CREDS_PSW}" \
-                            -e Jwt__Key=${JWT_SECRET} \
-                            -e Jwt__Issuer=${JWT_ISSUER} \
-                            -e Jwt__Audience=${JWT_AUDIENCE} \
-                            ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}
-                    """
+                sh '''
+                    docker stop ${DOCKER_IMAGE_NAME} || true
+                    docker rm ${DOCKER_IMAGE_NAME} || true
+                    docker run -d --name ${DOCKER_IMAGE_NAME} \
+                        --network=host \
+                        -e ASPNETCORE_ENVIRONMENT=Production \
+                        -e ConnectionStrings__DefaultConnection="Host=127.0.0.1;Database=JobTracker;Username=$POSTGRES_CREDS_USR;Password=$POSTGRES_CREDS_PSW" \
+                        -e Jwt__Key=$JWT_SECRET \
+                        -e Jwt__Issuer=${JWT_ISSUER} \
+                        -e Jwt__Audience=${JWT_AUDIENCE} \
+                        ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}
+                '''
             }
         }
     }
