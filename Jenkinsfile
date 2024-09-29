@@ -6,7 +6,11 @@ pipeline {
         JWT_SECRET = credentials('jwt-secret')
         JWT_ISSUER = 'JobTrackerAPI'
         JWT_AUDIENCE = 'JobTrackerClient'
+        API_PORT = '5052'
         DOCKER_COMPOSE_FILE = 'docker-compose.yml'
+        DOCKER_COMPOSE_PATH = '/usr/local/bin/docker-compose'
+        // Add Docker registry credentials if needed
+        DOCKER_CREDS = credentials('docker-registry-credentials')
     }
 
     stages {
@@ -19,14 +23,23 @@ pipeline {
         stage('Setup Environment') {
             steps {
                 script {
-                    // 使用 POSTGRES_CREDS_USR 和 POSTGRES_CREDS_PSW 获取凭据
                     sh '''
-                        echo "POSTGRES_USER=${POSTGRES_CREDS_USR}" > .env
-                        echo "POSTGRES_PASSWORD=${POSTGRES_CREDS_PSW}" >> .env
-                        echo "JWT_KEY=${JWT_SECRET}" >> .env
-                        echo "JWT_ISSUER=${JWT_ISSUER}" >> .env
-                        echo "JWT_AUDIENCE=${JWT_AUDIENCE}" >> .env
+                        echo "POSTGRES_USER=$POSTGRES_CREDS_USR" > .env
+                        echo "POSTGRES_PASSWORD=$POSTGRES_CREDS_PSW" >> .env
+                        echo "JWT_KEY=$JWT_SECRET" >> .env
+                        echo "JWT_ISSUER=$JWT_ISSUER" >> .env
+                        echo "JWT_AUDIENCE=$JWT_AUDIENCE" >> .env
+                        echo "API_PORT=$API_PORT" >> .env
                     '''
+                }
+            }
+        }
+
+        stage('Docker Login') {
+            steps {
+                script {
+                    // Login to Docker registry if needed
+                    sh 'echo $DOCKER_CREDS_PSW | docker login -u $DOCKER_CREDS_USR --password-stdin'
                 }
             }
         }
@@ -34,8 +47,7 @@ pipeline {
         stage('Deploy with Docker Compose') {
             steps {
                 script {
-                    // 使用 docker-compose 部署
-                    sh '/usr/local/bin/docker-compose -f docker-compose.yml --env-file .env up -d'
+                    sh '${DOCKER_COMPOSE_PATH} -f $DOCKER_COMPOSE_FILE --env-file .env up -d'
                 }
             }
         }
@@ -43,8 +55,9 @@ pipeline {
 
     post {
         always {
-            // 清理 .env 文件
             sh 'rm -f .env'
+            // Logout from Docker registry
+            sh 'docker logout'
         }
         success {
             echo 'Deployment successful!'
