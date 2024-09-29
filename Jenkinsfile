@@ -19,13 +19,13 @@ pipeline {
         stage('Setup Environment') {
             steps {
                 script {
-                    // Create a .env file with the secrets
+                    // 使用 POSTGRES_CREDS_USR 和 POSTGRES_CREDS_PSW 获取凭据
                     sh '''
-                        echo "POSTGRES_USER=$POSTGRES_CREDS_USR" > .env
-                        echo "POSTGRES_PASSWORD=$POSTGRES_CREDS_PSW" >> .env
-                        echo "JWT_KEY=$JWT_SECRET" >> .env
-                        echo "JWT_ISSUER=$JWT_ISSUER" >> .env
-                        echo "JWT_AUDIENCE=$JWT_AUDIENCE" >> .env
+                        echo "POSTGRES_USER=${POSTGRES_CREDS_USR}" > .env
+                        echo "POSTGRES_PASSWORD=${POSTGRES_CREDS_PSW}" >> .env
+                        echo "JWT_KEY=${JWT_SECRET}" >> .env
+                        echo "JWT_ISSUER=${JWT_ISSUER}" >> .env
+                        echo "JWT_AUDIENCE=${JWT_AUDIENCE}" >> .env
                     '''
                 }
             }
@@ -34,9 +34,8 @@ pipeline {
         stage('Deploy with Docker Compose') {
             steps {
                 script {
-                    // Use the .env file and run docker-compose
+                    // 使用 docker-compose 部署
                     sh '/usr/local/bin/docker-compose -f docker-compose.yml --env-file .env up -d'
-
                 }
             }
         }
@@ -44,7 +43,7 @@ pipeline {
 
     post {
         always {
-            // Clean up the .env file
+            // 清理 .env 文件
             sh 'rm -f .env'
         }
         success {
