@@ -23,7 +23,8 @@ pipeline {
         stage('Setup and Deploy') {
             steps {
                 script {
-                    node {
+                    // Use the 'any' label to run on any available node
+                    node('any') {
                         // Setup Environment
                         sh '''
                             echo "POSTGRES_USER=$POSTGRES_CREDS_USR" > .env
@@ -47,9 +48,11 @@ pipeline {
 
     post {
         always {
-            node {
-                sh 'rm -f .env'
-                sh 'docker logout'
+            script {
+                node('any') {
+                    sh 'rm -f .env'
+                    sh 'docker logout'
+                }
             }
         }
         success {
