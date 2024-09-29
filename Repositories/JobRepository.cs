@@ -16,6 +16,7 @@ public class JobRepository : IJobRepository
     public async Task<IEnumerable<Job>> GetJobsAsync(int pageNumber, int pageSize)
     {
         return await _context.Jobs
+            .Where(j => j.IsActive == true)
             .OrderByDescending(j => j.CreatedAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
