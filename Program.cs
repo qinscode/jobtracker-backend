@@ -8,6 +8,14 @@ using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Load configuration from appsettings.json and environment variables
+builder.Configuration
+    .SetBasePath(Directory.GetCurrentDirectory())
+    .AddJsonFile("appsettings.json", false, true)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", true, true)
+    .AddEnvironmentVariables()
+    .Build();
+
 // Add services to the container.
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -19,10 +27,7 @@ builder.Services.AddSwaggerGen();
 
 builder.WebHost.ConfigureKestrel(serverOptions =>
 {
-    if (builder.Environment.IsDevelopment())
-        serverOptions.ListenAnyIP(5051);
-    else
-        serverOptions.ListenAnyIP(80);
+    serverOptions.ListenAnyIP(builder.Configuration.GetValue("API_PORT", 80));
 });
 
 // Configure JWT authentication
@@ -40,14 +45,15 @@ builder.Services.AddCors(options =>
     {
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuer = false,
-            ValidateAudience = false,
+            ValidateIssuer = true,
+            ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
         };
-    })
-    ;
+    });
 
 // Add DbContext
 builder.Services.AddDbContext<JobTrackerContext>(options =>
@@ -74,6 +80,7 @@ if (app.Environment.IsDevelopment())
 }
 
 if (!app.Environment.IsDevelopment()) app.UseHttpsRedirection(); // 强制使用HTTPS
+
 // Enable CORS
 app.UseCors("AllowAll");
 
