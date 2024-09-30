@@ -71,11 +71,6 @@ builder.Services.AddScoped<IUserJobRepository, UserJobRepository>();
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
-{
-    var dbContext = scope.ServiceProvider.GetRequiredService<JobTrackerContext>();
-    dbContext.Database.Migrate(); // 自动执行数据库迁移
-}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
