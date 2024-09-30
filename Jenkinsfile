@@ -1,6 +1,5 @@
 pipeline {
     agent any
-
     environment {
         POSTGRES_CREDS = credentials('postgres-credentials')
         JWT_SECRET = credentials('jwt-secret')
@@ -9,43 +8,55 @@ pipeline {
         JWT_ISSUER = 'JobTrackerAPI'
         JWT_AUDIENCE = 'JobTrackerClient'
         API_PORT = '5052'
-        DOCKER_COMPOSE_FILE = 'docker-compose.yml'
-        DOCKER_COMPOSE_PATH = '/usr/local/bin/docker-compose'
+        DOCKER_IMAGE_NAME = 'job-tracker-api'
+        DOCKER_CONTAINER_NAME = 'job-tracker-api-container'
     }
-
     stages {
         stage('Checkout') {
             steps {
                 checkout scm
             }
         }
-
-        stage('Setup and Deploy') {
+        stage('Build Docker Image') {
             steps {
                 script {
-                    // Setup Environment
-                    sh '''
-                        echo "POSTGRES_CREDS=$POSTGRES_CREDS" > .env
-                        echo "JWT_KEY=$JWT_SECRET" >> .env
-                        echo "JWT_ISSUER=$JWT_ISSUER" >> .env
-                        echo "JWT_AUDIENCE=$JWT_AUDIENCE" >> .env
-                        echo "API_PORT=$API_PORT" >> .env
-                        echo "AUTHENTICATION_GOOGLE_CLIENTID=$AUTHENTICATION_GOOGLE_CLIENTID" >> .env
-                        echo "AUTHENTICATION_GOOGLE_SECRET=$AUTHENTICATION_GOOGLE_SECRET" >> .env
-                    '''
-
-                    // Deploy with Docker Compose
-                    sh "${DOCKER_COMPOSE_PATH} -f ${DOCKER_COMPOSE_FILE} --env-file .env up -d"
+                    sh """
+                    docker build -t ${DOCKER_IMAGE_NAME} \
+                    --build-arg POSTGRES_CREDS=${POSTGRES_CREDS} \
+                    --build-arg JWT_KEY=${JWT_SECRET} \
+                    --build-arg JWT_ISSUER=${JWT_ISSUER} \
+                    --build-arg JWT_AUDIENCE=${JWT_AUDIENCE} \
+                    --build-arg API_PORT=${API_PORT} \
+                    --build-arg AUTHENTICATION_GOOGLE_CLIENTID=${AUTHENTICATION_GOOGLE_CLIENTID} \
+                    --build-arg AUTHENTICATION_GOOGLE_SECRET=${AUTHENTICATION_GOOGLE_SECRET} \
+                    .
+                    """
+                }
+            }
+        }
+        stage('Deploy Docker Container') {
+            steps {
+                script {
+                    sh """
+                    docker stop ${DOCKER_CONTAINER_NAME} || true
+                    docker rm ${DOCKER_CONTAINER_NAME} || true
+                    docker run -d \
+                    --name ${DOCKER_CONTAINER_NAME} \
+                    --network host \
+                    -e POSTGRES_CREDS=${POSTGRES_CREDS} \
+                    -e JWT_KEY=${JWT_SECRET} \
+                    -e JWT_ISSUER=${JWT_ISSUER} \
+                    -e JWT_AUDIENCE=${JWT_AUDIENCE} \
+                    -e API_PORT=${API_PORT} \
+                    -e AUTHENTICATION_GOOGLE_CLIENTID=${AUTHENTICATION_GOOGLE_CLIENTID} \
+                    -e AUTHENTICATION_GOOGLE_SECRET=${AUTHENTICATION_GOOGLE_SECRET} \
+                    ${DOCKER_IMAGE_NAME}
+                    """
                 }
             }
         }
     }
-
     post {
-        always {
-            sh 'rm -f .env'
-            sh 'docker logout'
-        }
         success {
             echo 'Deployment successful!'
         }
