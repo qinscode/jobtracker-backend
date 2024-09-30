@@ -11,8 +11,6 @@ pipeline {
         API_PORT = '5052'
         DOCKER_COMPOSE_FILE = 'docker-compose.yml'
         DOCKER_COMPOSE_PATH = '/usr/local/bin/docker-compose'
-        // Add Docker registry credentials if needed
-        DOCKER_CREDS = credentials('docker-registry-credentials')
     }
 
     stages {
@@ -25,24 +23,24 @@ pipeline {
         stage('Setup and Deploy') {
             steps {
                 script {
-                    node {
-                        // Setup Environment
-                        sh '''
-                            echo "POSTGRES_CREDS=POSTGRES_CREDS" > .env
-                            echo "JWT_KEY=$JWT_SECRET" >> .env
-                            echo "JWT_ISSUER=$JWT_ISSUER" >> .env
-                            echo "JWT_AUDIENCE=$JWT_AUDIENCE" >> .env
-                            echo "API_PORT=$API_PORT" >> .env
-                            echo "AUTHENTICATION_GOOGLE_CLIENTID=AUTHENTICATION_GOOGLE_CLIENTID" >> .env
-                            echo "AUTHENTICATION_GOOGLE_SECRET=AUTHENTICATION_GOOGLE_SECRET" >> .env
-                        '''
+                    // Setup Environment
+                    sh '''
+                        echo "POSTGRES_CREDS=$POSTGRES_CREDS" > .env
+                        echo "JWT_KEY=$JWT_SECRET" >> .env
+                        echo "JWT_ISSUER=$JWT_ISSUER" >> .env
+                        echo "JWT_AUDIENCE=$JWT_AUDIENCE" >> .env
+                        echo "API_PORT=$API_PORT" >> .env
+                        echo "AUTHENTICATION_GOOGLE_CLIENTID=$AUTHENTICATION_GOOGLE_CLIENTID" >> .env
+                        echo "AUTHENTICATION_GOOGLE_SECRET=$AUTHENTICATION_GOOGLE_SECRET" >> .env
+                    '''
 
-                        // Docker Login (if needed)
+                    // Docker Login
+                    withCredentials([usernamePassword(credentialsId: 'docker-registry-credentials', usernameVariable: 'DOCKER_CREDS_USR', passwordVariable: 'DOCKER_CREDS_PSW')]) {
                         sh 'echo $DOCKER_CREDS_PSW | docker login -u $DOCKER_CREDS_USR --password-stdin'
-
-                        // Deploy with Docker Compose
-                        sh '${DOCKER_COMPOSE_PATH} -f $DOCKER_COMPOSE_FILE --env-file .env up -d'
                     }
+
+                    // Deploy with Docker Compose
+                    sh "${DOCKER_COMPOSE_PATH} -f ${DOCKER_COMPOSE_FILE} --env-file .env up -d"
                 }
             }
         }
@@ -50,10 +48,8 @@ pipeline {
 
     post {
         always {
-            node {
-                sh 'rm -f .env'
-                sh 'docker logout'
-            }
+            sh 'rm -f .env'
+            sh 'docker logout'
         }
         success {
             echo 'Deployment successful!'
