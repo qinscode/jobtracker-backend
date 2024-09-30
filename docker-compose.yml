@@ -14,27 +14,25 @@ services:
       - API_PORT=5052
       - Authentication__Google__Secret=${AUTHENTICATION_GOOGLE_SECRET}
       - Authentication__Google__Client_Id=${AUTHENTICATION_GOOGLE_CLIENT_ID}
-    depends_on:
-      jobtracker-db:
-        condition: service_healthy
+
     restart: always
 
-  jobtracker-db:
-    image: postgres:15
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: JobTracker
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    ports:
-      - "5433:5433"
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER}" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: always
-
-volumes:
-  postgres-data:
+#  jobtracker-db:
+#    image: postgres:15
+#    environment:
+#      POSTGRES_USER: ${POSTGRES_USER}
+#      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+#      POSTGRES_DB: JobTracker
+#    volumes:
+#      - postgres-data:/var/lib/postgresql/data
+#    ports:
+#      - "5433:5433"
+#    healthcheck:
+#      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER}" ]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 5
+#    restart: always
+#
+#volumes:
+#  postgres-data:
