@@ -27,7 +27,7 @@ builder.Services.AddSwaggerGen();
 
 builder.WebHost.ConfigureKestrel(serverOptions =>
 {
-    serverOptions.ListenAnyIP(builder.Configuration.GetValue("API_PORT", 80));
+    serverOptions.ListenAnyIP(builder.Configuration.GetValue("API_PORT", 5051));
 });
 
 // Configure JWT authentication
@@ -53,6 +53,11 @@ builder.Services.AddCors(options =>
             ValidAudience = builder.Configuration["Jwt:Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
         };
+    })
+    .AddGoogle(googleOptions =>
+    {
+        googleOptions.ClientId = builder.Configuration["Authentication:Google:ClientId"];
+        googleOptions.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
     });
 
 // Add DbContext
