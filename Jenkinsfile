@@ -34,11 +34,6 @@ pipeline {
                         echo "AUTHENTICATION_GOOGLE_SECRET=$AUTHENTICATION_GOOGLE_SECRET" >> .env
                     '''
 
-                    // Docker Login
-                    withCredentials([usernamePassword(credentialsId: 'docker-registry-credentials', usernameVariable: 'DOCKER_CREDS_USR', passwordVariable: 'DOCKER_CREDS_PSW')]) {
-                        sh 'echo $DOCKER_CREDS_PSW | docker login -u $DOCKER_CREDS_USR --password-stdin'
-                    }
-
                     // Deploy with Docker Compose
                     sh "${DOCKER_COMPOSE_PATH} -f ${DOCKER_COMPOSE_FILE} --env-file .env up -d"
                 }
