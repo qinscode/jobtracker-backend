@@ -2,7 +2,6 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using JobTracker.Services.Interfaces;
 using JobTracker.Templates;
-using Microsoft.Extensions.Logging;
 using Polly;
 using Polly.Retry;
 
@@ -10,15 +9,15 @@ namespace JobTracker.Services;
 
 public class AIAnalysisService : IAIAnalysisService
 {
+    private const int MaxRetries = 3;
+    private const int QuotaExceededDelayMs = 60000; // 1分钟延迟
     private readonly IConfiguration _configuration;
     private readonly HttpClient _httpClient;
     private readonly ILogger<AIAnalysisService> _logger;
     private readonly AsyncRetryPolicy<string> _retryPolicy;
-    private const int MaxRetries = 3;
-    private const int QuotaExceededDelayMs = 60000; // 1分钟延迟
 
     public AIAnalysisService(
-        IConfiguration configuration, 
+        IConfiguration configuration,
         HttpClient httpClient,
         ILogger<AIAnalysisService> logger)
     {
@@ -27,12 +26,12 @@ public class AIAnalysisService : IAIAnalysisService
         _logger = logger;
 
         _retryPolicy = Policy<string>
-            .Handle<HttpRequestException>(ex => 
-                ex.Message.Contains("TooManyRequests") || 
+            .Handle<HttpRequestException>(ex =>
+                ex.Message.Contains("TooManyRequests") ||
                 ex.Message.Contains("RESOURCE_EXHAUSTED"))
             .WaitAndRetryAsync(
                 MaxRetries,
-                retryAttempt => 
+                retryAttempt =>
                 {
                     // 如果是配额限制，等待1分钟
                     var delay = TimeSpan.FromMilliseconds(QuotaExceededDelayMs);
@@ -41,7 +40,8 @@ public class AIAnalysisService : IAIAnalysisService
                         delay.TotalMilliseconds,
                         retryAttempt,
                         MaxRetries);
-                    Console.WriteLine($"API quota exceeded. Waiting 1 minute before retry {retryAttempt}/{MaxRetries}...");
+                    Console.WriteLine(
+                        $"API quota exceeded. Waiting 1 minute before retry {retryAttempt}/{MaxRetries}...");
                     return delay;
                 },
                 (exception, timeSpan, retryCount, _) =>
@@ -109,7 +109,7 @@ public class AIAnalysisService : IAIAnalysisService
                 return result;
             }
             catch (HttpRequestException ex) when (
-                ex.Message.Contains("TooManyRequests") || 
+                ex.Message.Contains("TooManyRequests") ||
                 ex.Message.Contains("RESOURCE_EXHAUSTED"))
             {
                 _logger.LogWarning("API quota exceeded, will retry after delay");
@@ -152,7 +152,7 @@ public class AIAnalysisService : IAIAnalysisService
         if (!response.IsSuccessStatusCode)
         {
             var errorContent = await response.Content.ReadAsStringAsync();
-            _logger.LogError("Gemini API failed: Status={Status}, Error={Error}", 
+            _logger.LogError("Gemini API failed: Status={Status}, Error={Error}",
                 response.StatusCode, errorContent);
             throw new HttpRequestException(
                 $"Gemini API request failed with status code: {response.StatusCode}, Error: {errorContent}");
@@ -160,42 +160,37 @@ public class AIAnalysisService : IAIAnalysisService
 
         var result = await response.Content.ReadFromJsonAsync<GeminiApiResponse>();
         var text = result?.Candidates?.FirstOrDefault()?.Content?.Parts?.FirstOrDefault()?.Text;
-            
+
         _logger.LogInformation("Raw Gemini Response: {Response}", text);
-        Console.WriteLine($"Raw Gemini Response: {text}");
-            
         return text ?? "";
     }
 
     private class JobInfo
     {
-        [JsonPropertyName("BusinessName")] 
-        public string? BusinessName { get; set; }
+        [JsonPropertyName("BusinessName")] public string? BusinessName { get; set; }
 
-        [JsonPropertyName("JobTitle")] 
-        public string? JobTitle { get; set; }
+        [JsonPropertyName("JobTitle")] public string? JobTitle { get; set; }
 
-        [JsonPropertyName("Status")] 
-        public string? Status { get; set; }
+        [JsonPropertyName("Status")] public string? Status { get; set; }
     }
 
     private class GeminiApiResponse
     {
-        public List<Candidate>? Candidates { get; set; }
+        public List<Candidate>? Candidates { get; }
     }
 
     private class Candidate
     {
-        public Content? Content { get; set; }
+        public Content? Content { get; }
     }
 
     private class Content
     {
-        public List<Part>? Parts { get; set; }
+        public List<Part>? Parts { get; }
     }
 
     private class Part
     {
-        public string? Text { get; set; }
+        public string? Text { get; }
     }
 }

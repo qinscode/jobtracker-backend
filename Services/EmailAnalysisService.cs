@@ -11,8 +11,8 @@ public class EmailAnalysisService : IEmailAnalysisService
     private readonly IEmailService _emailService;
     private readonly IJobMatchingService _jobMatchingService;
     private readonly IJobRepository _jobRepository;
-    private readonly IUserJobRepository _userJobRepository;
     private readonly ILogger<EmailAnalysisService> _logger;
+    private readonly IUserJobRepository _userJobRepository;
 
     public EmailAnalysisService(
         IEmailService emailService,
@@ -40,8 +40,12 @@ public class EmailAnalysisService : IEmailAnalysisService
             var emails = await _emailService.FetchNewEmailsAsync(config);
             _logger.LogInformation("Found {Count} emails to analyze", emails.Count());
 
+            Console.WriteLine("\n========== Email Analysis Summary ==========");
+            Console.WriteLine($"Analyzing emails for: {config.EmailAddress}");
+            Console.WriteLine($"Total emails found: {emails.Count()}");
+            Console.WriteLine("=========================================\n");
+
             foreach (var email in emails)
-            {
                 try
                 {
                     var jobInfo = await _aiAnalysisService.ExtractJobInfo(email.Body);
@@ -53,12 +57,21 @@ public class EmailAnalysisService : IEmailAnalysisService
                     {
                         Subject = email.Subject,
                         ReceivedDate = email.ReceivedDate,
-                        IsRecognized = false // 默认为未识别
+                        IsRecognized = false
                     };
+
+                    Console.WriteLine("\n========== Processing Email ==========");
+                    Console.WriteLine($"Subject: {email.Subject}");
+                    Console.WriteLine($"Date: {email.ReceivedDate:yyyy-MM-dd HH:mm:ss} AWST");
 
                     // 如果提取到了公司名称和职位名称
                     if (!string.IsNullOrWhiteSpace(jobInfo.CompanyName) && !string.IsNullOrWhiteSpace(jobInfo.JobTitle))
                     {
+                        Console.WriteLine("\nAI Analysis Result:");
+                        Console.WriteLine($"Company: {jobInfo.CompanyName}");
+                        Console.WriteLine($"Job Title: {jobInfo.JobTitle}");
+                        Console.WriteLine($"Status: {status}");
+
                         var (isMatch, matchedJob, similarity) = await _jobMatchingService.FindMatchingJobAsync(
                             jobInfo.JobTitle,
                             jobInfo.CompanyName);
@@ -66,22 +79,22 @@ public class EmailAnalysisService : IEmailAnalysisService
                         Job job;
                         if (isMatch && matchedJob != null)
                         {
-                            // 使用现有的工作记录
                             job = matchedJob;
-                            
-                            // 更新用户工作状态
-                            var userJob = await _userJobRepository.GetUserJobByUserIdAndJobIdAsync(config.UserId, job.Id);
+                            Console.WriteLine("\nMatched with existing job:");
+                            Console.WriteLine($"Job ID: {job.Id}");
+                            Console.WriteLine($"Action: Updating status to {status}");
+
+                            var userJob =
+                                await _userJobRepository.GetUserJobByUserIdAndJobIdAsync(config.UserId, job.Id);
                             if (userJob != null && status == UserJobStatus.Rejected)
                             {
                                 userJob.Status = status;
                                 userJob.UpdatedAt = DateTime.UtcNow;
                                 await _userJobRepository.UpdateUserJobAsync(userJob);
-                                _logger.LogInformation("Updated job status to Rejected for JobId: {JobId}", job.Id);
                             }
                         }
                         else
                         {
-                            // 创建新的工作记录
                             var perthTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, PerthTimeZone);
                             job = new Job
                             {
@@ -94,9 +107,7 @@ public class EmailAnalysisService : IEmailAnalysisService
                                 IsNew = true
                             };
                             job = await _jobRepository.CreateJobAsync(job);
-                            _logger.LogInformation("Created new job with ID: {JobId}", job.Id);
 
-                            // 创建用户工作关系
                             var userJob = new UserJob
                             {
                                 UserId = config.UserId,
@@ -106,7 +117,10 @@ public class EmailAnalysisService : IEmailAnalysisService
                                 UpdatedAt = perthTime
                             };
                             await _userJobRepository.CreateUserJobAsync(userJob);
-                            _logger.LogInformation("Created new user job relationship with status: {Status}", status);
+
+                            Console.WriteLine("\nCreated new job record:");
+                            Console.WriteLine($"Job ID: {job.Id}");
+                            Console.WriteLine($"Initial Status: {status}");
                         }
 
                         analysisResult.Job = new JobBasicInfo
@@ -116,32 +130,19 @@ public class EmailAnalysisService : IEmailAnalysisService
                             BusinessName = job.BusinessName
                         };
                         analysisResult.IsRecognized = true;
-
-                        // 输出分析结果到控制台
-                        Console.WriteLine("\n========== Email Analysis Result ==========");
-                        Console.WriteLine($"Subject: {analysisResult.Subject}");
-                        Console.WriteLine($"Date: {analysisResult.ReceivedDate:yyyy-MM-dd HH:mm:ss} AWST");
-                        Console.WriteLine($"Company: {job.BusinessName}");
-                        Console.WriteLine($"Job Title: {job.JobTitle}");
-                        Console.WriteLine($"Job ID: {job.Id}");
-                        Console.WriteLine($"Status: {status}");
-                        Console.WriteLine($"Is New Job: {!isMatch}");
-                        Console.WriteLine("=========================================\n");
                     }
                     else
                     {
-                        Console.WriteLine("\n========== Email Analysis Result ==========");
-                        Console.WriteLine($"Subject: {analysisResult.Subject}");
-                        Console.WriteLine($"Date: {analysisResult.ReceivedDate:yyyy-MM-dd HH:mm:ss} AWST");
-                        Console.WriteLine("Job information could not be extracted");
-                        Console.WriteLine("=========================================\n");
+                        Console.WriteLine("Result: No job information could be extracted");
                     }
 
+                    Console.WriteLine("====================================\n");
                     results.Add(analysisResult);
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error analyzing email with subject: {Subject}", email.Subject);
+                    Console.WriteLine($"Error processing email: {ex.Message}\n");
                     results.Add(new EmailAnalysisDto
                     {
                         Subject = email.Subject,
@@ -149,7 +150,11 @@ public class EmailAnalysisService : IEmailAnalysisService
                         IsRecognized = false
                     });
                 }
-            }
+
+            Console.WriteLine("\n========== Analysis Complete ==========");
+            Console.WriteLine($"Total emails processed: {results.Count}");
+            Console.WriteLine($"Successfully recognized: {results.Count(r => r.IsRecognized)}");
+            Console.WriteLine("=====================================\n");
         }
         catch (Exception ex)
         {
