@@ -8,12 +8,12 @@ public class EmailAnalysisService : IEmailAnalysisService
 {
     private static readonly TimeZoneInfo PerthTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Australia/Perth");
     private readonly IAIAnalysisService _aiAnalysisService;
+    private readonly IAnalyzedEmailRepository _analyzedEmailRepository;
     private readonly IEmailService _emailService;
     private readonly IJobMatchingService _jobMatchingService;
     private readonly IJobRepository _jobRepository;
-    private readonly IUserJobRepository _userJobRepository;
-    private readonly IAnalyzedEmailRepository _analyzedEmailRepository;
     private readonly ILogger<EmailAnalysisService> _logger;
+    private readonly IUserJobRepository _userJobRepository;
 
     public EmailAnalysisService(
         IEmailService emailService,
@@ -52,7 +52,7 @@ public class EmailAnalysisService : IEmailAnalysisService
 
     public async Task<List<EmailAnalysisDto>> AnalyzeNewEmails(UserEmailConfig config, DateTime? since = null)
     {
-        _logger.LogInformation("Starting to analyze new emails for {Email} since {Date}", 
+        _logger.LogInformation("Starting to analyze new emails for {Email} since {Date}",
             config.EmailAddress, since?.ToString() ?? "beginning");
         var results = new List<EmailAnalysisDto>();
 
@@ -68,10 +68,21 @@ public class EmailAnalysisService : IEmailAnalysisService
         }
     }
 
+    public async Task<bool> IsRejectionEmail(string emailContent)
+    {
+        return await _aiAnalysisService.IsRejectionEmail(emailContent);
+    }
+
+    public async Task ProcessRejectionEmail(string emailContent, Guid userId)
+    {
+        // 暂时不实现
+        await Task.CompletedTask;
+    }
+
     private async Task<List<EmailAnalysisDto>> ProcessEmails(IEnumerable<EmailMessage> emails, UserEmailConfig config)
     {
         var results = new List<EmailAnalysisDto>();
-        
+
         foreach (var email in emails)
         {
             // 检查是否已经分析过这封邮件
@@ -100,7 +111,7 @@ public class EmailAnalysisService : IEmailAnalysisService
                 // 如果提取到了公司名称和职位名称
                 if (!string.IsNullOrWhiteSpace(jobInfo.CompanyName) && !string.IsNullOrWhiteSpace(jobInfo.JobTitle))
                 {
-                    Console.WriteLine($"\nExtracted Job Info:");
+                    Console.WriteLine("\nExtracted Job Info:");
                     Console.WriteLine($"Company: {jobInfo.CompanyName}");
                     Console.WriteLine($"Title: {jobInfo.JobTitle}");
 
@@ -141,7 +152,15 @@ public class EmailAnalysisService : IEmailAnalysisService
                             UpdatedAt = perthTime,
                             IsActive = true,
                             PostedDate = email.ReceivedDate,
-                            IsNew = true
+                            IsNew = true,
+                            WorkType = "",
+                            JobType = "",
+                            PayRange = "",
+                            Suburb = "",
+                            Area = "",
+                            Url = "",
+                            JobDescription = "",
+                            AdvertiserId = 0
                         };
 
                         try
@@ -172,7 +191,7 @@ public class EmailAnalysisService : IEmailAnalysisService
                             Console.WriteLine("Created new AnalyzedEmail record");
 
                             matchedJob = newJob;
-                            
+
                             // 设置分析结果
                             analysisResult.Job = new JobBasicInfo
                             {
@@ -184,7 +203,7 @@ public class EmailAnalysisService : IEmailAnalysisService
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogError(ex, "Failed to create new job for {Company} - {Title}", 
+                            _logger.LogError(ex, "Failed to create new job for {Company} - {Title}",
                                 jobInfo.CompanyName, jobInfo.JobTitle);
                             throw; // 重新抛出异常，因为这是一个关键错误
                         }
@@ -232,17 +251,6 @@ public class EmailAnalysisService : IEmailAnalysisService
     }
 
     public async Task ScanEmailsAsync(UserEmailConfig config)
-    {
-        // 暂时不实现
-        await Task.CompletedTask;
-    }
-
-    public async Task<bool> IsRejectionEmail(string emailContent)
-    {
-        return await _aiAnalysisService.IsRejectionEmail(emailContent);
-    }
-
-    public async Task ProcessRejectionEmail(string emailContent, Guid userId)
     {
         // 暂时不实现
         await Task.CompletedTask;

@@ -17,4 +17,5 @@ public interface IJobRepository
     Task<IEnumerable<Job>> SearchJobsByTitleAsync(string searchTerm, int pageNumber, int pageSize);
     Task<int> CountJobsByTitleAsync(string searchTerm);
     Task<IEnumerable<Job>> SearchJobsByTitleAndCompanyAsync(string jobTitle, string companyName, int pageNumber, int pageSize);
+    IQueryable<Job> GetQueryable();
 }

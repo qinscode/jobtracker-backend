@@ -1,0 +1,160 @@
+{
+    "info": {
+        "name": "JobTracker Search API",
+        "description": "Job search functionality tests",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Search Jobs - Basic Search",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}",
+                        "type": "text"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/jobs/search?searchTerm=developer",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "jobs", "search"],
+                    "query": [
+                        {
+                            "key": "searchTerm",
+                            "value": "developer"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Search Jobs - Advanced Search",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}",
+                        "type": "text"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/jobs/search?jobTitle=software engineer&companyName=tech&isActive=true&pageNumber=1&pageSize=10&sortBy=date&sortDescending=true",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "jobs", "search"],
+                    "query": [
+                        {
+                            "key": "jobTitle",
+                            "value": "software engineer"
+                        },
+                        {
+                            "key": "companyName",
+                            "value": "tech"
+                        },
+                        {
+                            "key": "isActive",
+                            "value": "true"
+                        },
+                        {
+                            "key": "pageNumber",
+                            "value": "1"
+                        },
+                        {
+                            "key": "pageSize",
+                            "value": "10"
+                        },
+                        {
+                            "key": "sortBy",
+                            "value": "date"
+                        },
+                        {
+                            "key": "sortDescending",
+                            "value": "true"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Search Jobs - Company Only",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}",
+                        "type": "text"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/jobs/search?companyName=microsoft&pageSize=5",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "jobs", "search"],
+                    "query": [
+                        {
+                            "key": "companyName",
+                            "value": "microsoft"
+                        },
+                        {
+                            "key": "pageSize",
+                            "value": "5"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Search Jobs - Job Title Only",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}",
+                        "type": "text"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/jobs/search?jobTitle=frontend&sortBy=title",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "jobs", "search"],
+                    "query": [
+                        {
+                            "key": "jobTitle",
+                            "value": "frontend"
+                        },
+                        {
+                            "key": "sortBy",
+                            "value": "title"
+                        }
+                    ]
+                }
+            }
+        }
+    ],
+    "event": [
+        {
+            "listen": "prerequest",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                    ""
+                ]
+            }
+        }
+    ],
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "http://localhost:5000",
+            "type": "string"
+        },
+        {
+            "key": "token",
+            "value": "your_auth_token_here",
+            "type": "string"
+        }
+    ]
+} 

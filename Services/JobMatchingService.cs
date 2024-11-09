@@ -4,6 +4,7 @@ using FuzzySharp.PreProcess;
 using JobTracker.Models;
 using JobTracker.Repositories;
 using JobTracker.Services.Interfaces;
+using Microsoft.EntityFrameworkCore;
 
 namespace JobTracker.Services;
 
@@ -159,5 +160,100 @@ public class JobMatchingService : IJobMatchingService
         
         // 使用 FuzzySharp 的 TokenSetRatio，它对词序不敏感
         return Fuzz.TokenSetRatio(s1.ToLower(), s2.ToLower()) / 100.0;
+    }
+
+    public async Task<JobSearchResult> SearchJobsAsync(JobSearchParams searchParams)
+    {
+        var query = _jobRepository.GetQueryable();
+
+        // 应用搜索条件
+        if (!string.IsNullOrWhiteSpace(searchParams.SearchTerm))
+        {
+            var searchTerm = searchParams.SearchTerm.ToLower();
+            // 使用 OR 条件同时搜索职位名称和公司名称
+            query = query.Where(j => 
+                EF.Functions.ILike(j.JobTitle, $"%{searchTerm}%") || 
+                EF.Functions.ILike(j.BusinessName, $"%{searchTerm}%"));
+        }
+
+        // 如果同时提供了具体的职位名称和公司名称，使用 AND 条件
+        if (!string.IsNullOrWhiteSpace(searchParams.JobTitle) && !string.IsNullOrWhiteSpace(searchParams.CompanyName))
+        {
+            query = query.Where(j => 
+                EF.Functions.ILike(j.JobTitle, $"%{searchParams.JobTitle}%") && 
+                EF.Functions.ILike(j.BusinessName, $"%{searchParams.CompanyName}%"));
+        }
+        // 否则分别应用职位名称和公司名称的搜索条件
+        else
+        {
+            if (!string.IsNullOrWhiteSpace(searchParams.JobTitle))
+            {
+                query = query.Where(j => EF.Functions.ILike(j.JobTitle, $"%{searchParams.JobTitle}%"));
+            }
+
+            if (!string.IsNullOrWhiteSpace(searchParams.CompanyName))
+            {
+                query = query.Where(j => EF.Functions.ILike(j.BusinessName, $"%{searchParams.CompanyName}%"));
+            }
+        }
+
+        if (searchParams.IsActive.HasValue)
+        {
+            query = query.Where(j => j.IsActive == searchParams.IsActive.Value);
+        }
+
+        // 计算总数
+        var totalCount = await query.CountAsync();
+
+        // 应用排序
+        if (!string.IsNullOrWhiteSpace(searchParams.SortBy))
+        {
+            query = searchParams.SortBy.ToLower() switch
+            {
+                "title" => searchParams.SortDescending 
+                    ? query.OrderByDescending(j => j.JobTitle) 
+                    : query.OrderBy(j => j.JobTitle),
+                "company" => searchParams.SortDescending 
+                    ? query.OrderByDescending(j => j.BusinessName) 
+                    : query.OrderBy(j => j.BusinessName),
+                "date" => searchParams.SortDescending 
+                    ? query.OrderByDescending(j => j.CreatedAt) 
+                    : query.OrderBy(j => j.CreatedAt),
+                _ => searchParams.SortDescending 
+                    ? query.OrderByDescending(j => j.CreatedAt) 
+                    : query.OrderBy(j => j.CreatedAt)
+            };
+        }
+        else
+        {
+            query = searchParams.SortDescending 
+                ? query.OrderByDescending(j => j.CreatedAt) 
+                : query.OrderBy(j => j.CreatedAt);
+        }
+
+        // 输出生成的SQL查询（用于调试）
+        var sql = query.ToQueryString();
+        Console.WriteLine($"\nGenerated SQL Query:\n{sql}\n");
+
+        // 应用分页
+        var jobs = await query
+            .Skip((searchParams.PageNumber - 1) * searchParams.PageSize)
+            .Take(searchParams.PageSize)
+            .ToListAsync();
+
+        // 输出搜索结果
+        Console.WriteLine($"\nFound {jobs.Count} matches:");
+        foreach (var job in jobs)
+        {
+            Console.WriteLine($"- {job.BusinessName}: {job.JobTitle}");
+        }
+
+        return new JobSearchResult
+        {
+            Jobs = jobs,
+            TotalCount = totalCount,
+            PageNumber = searchParams.PageNumber,
+            PageSize = searchParams.PageSize
+        };
     }
 } 

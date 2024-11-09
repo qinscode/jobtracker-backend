@@ -183,4 +183,9 @@ public class JobRepository : IJobRepository
 
         return results;
     }
+
+    public IQueryable<Job> GetQueryable()
+    {
+        return _context.Jobs.AsQueryable();
+    }
 }

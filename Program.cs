@@ -26,8 +26,6 @@ builder.Services.AddControllers()
     {
         options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
     });
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
 
 builder.WebHost.ConfigureKestrel(serverOptions =>
 {
@@ -86,16 +84,10 @@ builder.Services.AddScoped<IJobMatchingService, JobMatchingService>();
 // 注册后台服务
 builder.Services.AddHostedService<EmailMonitoringService>();
 
+
 var app = builder.Build();
 
-
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-
 if (!app.Environment.IsDevelopment()) app.UseHttpsRedirection(); // 强制使用HTTPS
 
 // Enable CORS
@@ -105,5 +97,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
 
 app.Run();
