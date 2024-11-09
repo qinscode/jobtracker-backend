@@ -2,9 +2,13 @@ using System.Text;
 using System.Text.Json.Serialization;
 using JobTracker.Data;
 using JobTracker.Repositories;
+using JobTracker.Services;
+using JobTracker.Services.Interfaces;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -68,6 +72,15 @@ builder.Services.AddDbContext<JobTrackerContext>(options =>
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IJobRepository, JobRepository>();
 builder.Services.AddScoped<IUserJobRepository, UserJobRepository>();
+builder.Services.AddScoped<IUserEmailConfigRepository, UserEmailConfigRepository>();
+
+// Register email services
+builder.Services.AddHttpClient<IAIAnalysisService, AIAnalysisService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IEmailAnalysisService, EmailAnalysisService>();
+
+// Register services
+builder.Services.AddScoped<IJobMatchingService, JobMatchingService>();
 
 var app = builder.Build();
 
