@@ -1,4 +1,5 @@
 using JobTracker.Models;
+using JobTracker.Repositories;
 using JobTracker.Services.Interfaces;
 
 namespace JobTracker.Services;
@@ -9,17 +10,23 @@ public class EmailAnalysisService : IEmailAnalysisService
     private readonly IAIAnalysisService _aiAnalysisService;
     private readonly IEmailService _emailService;
     private readonly IJobMatchingService _jobMatchingService;
+    private readonly IJobRepository _jobRepository;
+    private readonly IUserJobRepository _userJobRepository;
     private readonly ILogger<EmailAnalysisService> _logger;
 
     public EmailAnalysisService(
         IEmailService emailService,
         IAIAnalysisService aiAnalysisService,
         IJobMatchingService jobMatchingService,
+        IJobRepository jobRepository,
+        IUserJobRepository userJobRepository,
         ILogger<EmailAnalysisService> logger)
     {
         _emailService = emailService;
         _aiAnalysisService = aiAnalysisService;
         _jobMatchingService = jobMatchingService;
+        _jobRepository = jobRepository;
+        _userJobRepository = userJobRepository;
         _logger = logger;
     }
 
@@ -34,12 +41,12 @@ public class EmailAnalysisService : IEmailAnalysisService
             _logger.LogInformation("Found {Count} emails to analyze", emails.Count());
 
             foreach (var email in emails)
+            {
                 try
                 {
                     var jobInfo = await _aiAnalysisService.ExtractJobInfo(email.Body);
-                    var status = await _aiAnalysisService.IsRejectionEmail(email.Body)
-                        ? UserJobStatus.Rejected
-                        : UserJobStatus.Applied;
+                    var isRejection = await _aiAnalysisService.IsRejectionEmail(email.Body);
+                    var status = isRejection ? UserJobStatus.Rejected : UserJobStatus.Applied;
 
                     // 创建基本的分析结果
                     var analysisResult = new EmailAnalysisDto
@@ -56,53 +63,81 @@ public class EmailAnalysisService : IEmailAnalysisService
                             jobInfo.JobTitle,
                             jobInfo.CompanyName);
 
-                        // 输出分析结果到控制台
-                        Console.WriteLine("\n========== Email Analysis Result ==========");
-                        Console.WriteLine($"Subject: {analysisResult.Subject}");
-                        Console.WriteLine($"Date: {analysisResult.ReceivedDate.ToString("yyyy-MM-dd HH:mm:ss")} AWST");
-                        Console.WriteLine("\nAI Analysis:");
-                        Console.WriteLine($"Company: {jobInfo.CompanyName}");
-                        Console.WriteLine($"Job Title: {jobInfo.JobTitle}");
-
+                        Job job;
                         if (isMatch && matchedJob != null)
                         {
-                            analysisResult.Job = new JobBasicInfo
+                            // 使用现有的工作记录
+                            job = matchedJob;
+                            
+                            // 更新用户工作状态
+                            var userJob = await _userJobRepository.GetUserJobByUserIdAndJobIdAsync(config.UserId, job.Id);
+                            if (userJob != null && status == UserJobStatus.Rejected)
                             {
-                                Id = matchedJob.Id,
-                                JobTitle = matchedJob.JobTitle,
-                                BusinessName = matchedJob.BusinessName
-                            };
-                            Console.WriteLine($"\nMatched with existing job (Similarity: {similarity:P})");
+                                userJob.Status = status;
+                                userJob.UpdatedAt = DateTime.UtcNow;
+                                await _userJobRepository.UpdateUserJobAsync(userJob);
+                                _logger.LogInformation("Updated job status to Rejected for JobId: {JobId}", job.Id);
+                            }
                         }
                         else
                         {
-                            analysisResult.Job = new JobBasicInfo
+                            // 创建新的工作记录
+                            var perthTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, PerthTimeZone);
+                            job = new Job
                             {
                                 JobTitle = jobInfo.JobTitle,
-                                BusinessName = jobInfo.CompanyName
+                                BusinessName = jobInfo.CompanyName,
+                                CreatedAt = perthTime,
+                                UpdatedAt = perthTime,
+                                IsActive = true,
+                                PostedDate = email.ReceivedDate,
+                                IsNew = true
                             };
-                            Console.WriteLine("\nNo matching job found in database");
+                            job = await _jobRepository.CreateJobAsync(job);
+                            _logger.LogInformation("Created new job with ID: {JobId}", job.Id);
+
+                            // 创建用户工作关系
+                            var userJob = new UserJob
+                            {
+                                UserId = config.UserId,
+                                JobId = job.Id,
+                                Status = status,
+                                CreatedAt = perthTime,
+                                UpdatedAt = perthTime
+                            };
+                            await _userJobRepository.CreateUserJobAsync(userJob);
+                            _logger.LogInformation("Created new user job relationship with status: {Status}", status);
                         }
 
+                        analysisResult.Job = new JobBasicInfo
+                        {
+                            Id = job.Id,
+                            JobTitle = job.JobTitle,
+                            BusinessName = job.BusinessName
+                        };
                         analysisResult.IsRecognized = true;
-                        Console.WriteLine($"\nFinal Result: {(isMatch ? "MATCHED WITH EXISTING JOB" : "NEW JOB")}");
+
+                        // 输出分析结果到控制台
+                        Console.WriteLine("\n========== Email Analysis Result ==========");
+                        Console.WriteLine($"Subject: {analysisResult.Subject}");
+                        Console.WriteLine($"Date: {analysisResult.ReceivedDate:yyyy-MM-dd HH:mm:ss} AWST");
+                        Console.WriteLine($"Company: {job.BusinessName}");
+                        Console.WriteLine($"Job Title: {job.JobTitle}");
+                        Console.WriteLine($"Job ID: {job.Id}");
+                        Console.WriteLine($"Status: {status}");
+                        Console.WriteLine($"Is New Job: {!isMatch}");
                         Console.WriteLine("=========================================\n");
                     }
                     else
                     {
                         Console.WriteLine("\n========== Email Analysis Result ==========");
                         Console.WriteLine($"Subject: {analysisResult.Subject}");
-                        Console.WriteLine($"Date: {analysisResult.ReceivedDate.ToString("yyyy-MM-dd HH:mm:ss")} AWST");
+                        Console.WriteLine($"Date: {analysisResult.ReceivedDate:yyyy-MM-dd HH:mm:ss} AWST");
                         Console.WriteLine("Job information could not be extracted");
                         Console.WriteLine("=========================================\n");
                     }
 
                     results.Add(analysisResult);
-
-                    _logger.LogInformation(
-                        "Analyzed email: Subject={Subject}, Recognized={Recognized}",
-                        email.Subject,
-                        analysisResult.IsRecognized);
                 }
                 catch (Exception ex)
                 {
@@ -114,6 +149,7 @@ public class EmailAnalysisService : IEmailAnalysisService
                         IsRecognized = false
                     });
                 }
+            }
         }
         catch (Exception ex)
         {
