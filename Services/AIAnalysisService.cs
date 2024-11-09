@@ -158,11 +158,26 @@ public class AIAnalysisService : IAIAnalysisService
                 $"Gemini API request failed with status code: {response.StatusCode}, Error: {errorContent}");
         }
 
-        var result = await response.Content.ReadFromJsonAsync<GeminiApiResponse>();
-        var text = result?.Candidates?.FirstOrDefault()?.Content?.Parts?.FirstOrDefault()?.Text;
+        var responseContent = await response.Content.ReadAsStringAsync();
+        _logger.LogInformation("Raw Gemini Response: {Response}", responseContent);
 
-        _logger.LogInformation("Raw Gemini Response: {Response}", text);
-        return text ?? "";
+        var result = JsonSerializer.Deserialize<GeminiApiResponse>(responseContent);
+        
+        if (result?.Candidates == null || !result.Candidates.Any())
+        {
+            _logger.LogError("No candidates in Gemini response");
+            throw new InvalidOperationException("No candidates in Gemini response");
+        }
+
+        var text = result.Candidates.FirstOrDefault()?.Content?.Parts?.FirstOrDefault()?.Text;
+        
+        if (string.IsNullOrEmpty(text))
+        {
+            _logger.LogError("Empty text in Gemini response");
+            throw new InvalidOperationException("Empty text in Gemini response");
+        }
+
+        return text;
     }
 
     private class JobInfo
@@ -176,21 +191,25 @@ public class AIAnalysisService : IAIAnalysisService
 
     private class GeminiApiResponse
     {
-        public List<Candidate>? Candidates { get; }
+        [JsonPropertyName("candidates")]
+        public List<Candidate>? Candidates { get; set; }
     }
 
     private class Candidate
     {
-        public Content? Content { get; }
+        [JsonPropertyName("content")]
+        public Content? Content { get; set; }
     }
 
     private class Content
     {
-        public List<Part>? Parts { get; }
+        [JsonPropertyName("parts")]
+        public List<Part>? Parts { get; set; }
     }
 
     private class Part
     {
-        public string? Text { get; }
+        [JsonPropertyName("text")]
+        public string? Text { get; set; }
     }
 }

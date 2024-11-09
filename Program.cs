@@ -73,6 +73,7 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IJobRepository, JobRepository>();
 builder.Services.AddScoped<IUserJobRepository, UserJobRepository>();
 builder.Services.AddScoped<IUserEmailConfigRepository, UserEmailConfigRepository>();
+builder.Services.AddScoped<IAnalyzedEmailRepository, AnalyzedEmailRepository>();
 
 // Register email services
 builder.Services.AddHttpClient<IAIAnalysisService, AIAnalysisService>();

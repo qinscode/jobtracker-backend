@@ -71,6 +71,7 @@ public class EmailService : IEmailService
                         {
                             messages.Add(new EmailMessage
                             {
+                                MessageId = message.MessageId,
                                 Subject = message.Subject,
                                 Body = textBody,
                                 ReceivedDate = TimeZoneInfo.ConvertTimeFromUtc(message.Date.UtcDateTime, PerthTimeZone)
