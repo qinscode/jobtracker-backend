@@ -148,21 +148,56 @@ public class UserJobsController : ControllerBase
 
     [HttpGet("status/{status}")]
     public async Task<ActionResult<JobsResponseDto>> GetUserJobsByStatus(
-        UserJobStatus status, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+        UserJobStatus status, 
+        [FromQuery] string? searchTerm,
+        [FromQuery] int pageNumber = 1, 
+        [FromQuery] int pageSize = 10)
     {
         var userGuid = GetUserIdFromToken();
 
-        Console.WriteLine($"Fuck UserGuid: {userGuid}");
+        Console.WriteLine($"UserGuid: {userGuid}");
+        Console.WriteLine($"SearchTerm: {searchTerm}");
 
-        var jobs = await _userJobRepository.GetJobsByUserIdAndStatusAsync(userGuid, status, pageNumber, pageSize);
-        Console.WriteLine($"Jobs: {JsonSerializer.Serialize(jobs)}");
-        var totalCount = await _userJobRepository.GetJobsCountByUserIdAndStatusAsync(userGuid, status);
-
-        var response = new JobsResponseDto
+        // 如果提供了搜索词，使用搜索方法
+        if (!string.IsNullOrWhiteSpace(searchTerm))
         {
-            Jobs = jobs.Select(j => new JobDto
+            var jobs = await _userJobRepository.SearchJobsByTitleAsync(userGuid, searchTerm, status, pageNumber, pageSize);
+            var totalCount = await _userJobRepository.CountJobsByTitleAsync(userGuid, searchTerm, status);
+
+            var response = new JobsResponseDto
             {
-                Id = j.Id, // Changed from string to int
+                Jobs = jobs.Select(j => new JobDto
+                {
+                    Id = j.Id,
+                    JobTitle = j.JobTitle ?? "",
+                    BusinessName = j.BusinessName ?? "",
+                    WorkType = j.WorkType ?? "",
+                    JobType = j.JobType ?? "",
+                    PayRange = j.PayRange ?? "",
+                    Suburb = j.Suburb ?? "",
+                    Area = j.Area ?? "",
+                    Url = j.Url ?? "",
+                    Status = status.ToString(),
+                    PostedDate = j.PostedDate?.ToString("yyyy-MM-dd") ?? "",
+                    JobDescription = j.JobDescription ?? ""
+                }),
+                TotalCount = totalCount,
+                PageNumber = pageNumber,
+                PageSize = pageSize
+            };
+
+            return Ok(response);
+        }
+        
+        // 如果没有搜索词，使用原有的方法
+        var regularJobs = await _userJobRepository.GetJobsByUserIdAndStatusAsync(userGuid, status, pageNumber, pageSize);
+        var regularTotalCount = await _userJobRepository.GetJobsCountByUserIdAndStatusAsync(userGuid, status);
+
+        var regularResponse = new JobsResponseDto
+        {
+            Jobs = regularJobs.Select(j => new JobDto
+            {
+                Id = j.Id,
                 JobTitle = j.JobTitle ?? "",
                 BusinessName = j.BusinessName ?? "",
                 WorkType = j.WorkType ?? "",
@@ -175,15 +210,15 @@ public class UserJobsController : ControllerBase
                 PostedDate = j.PostedDate?.ToString("yyyy-MM-dd") ?? "",
                 JobDescription = j.JobDescription ?? ""
             }),
-            TotalCount = totalCount,
+            TotalCount = regularTotalCount,
             PageNumber = pageNumber,
             PageSize = pageSize
         };
 
-        Console.WriteLine($"Response: {JsonSerializer.Serialize(response)}");
-        Console.WriteLine($"Jobs: {JsonSerializer.Serialize(response.Jobs)}");
+        Console.WriteLine($"Response: {JsonSerializer.Serialize(regularResponse)}");
+        Console.WriteLine($"Jobs: {JsonSerializer.Serialize(regularResponse.Jobs)}");
 
-        return Ok(response);
+        return Ok(regularResponse);
     }
 
     [HttpGet("recent")]
