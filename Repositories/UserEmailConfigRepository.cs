@@ -42,4 +42,17 @@ public class UserEmailConfigRepository : IUserEmailConfigRepository
             await _context.SaveChangesAsync();
         }
     }
+
+    public async Task<UserEmailConfig?> GetByIdAsync(Guid id)
+    {
+        return await _context.UserEmailConfigs
+            .FirstOrDefaultAsync(c => c.Id == id && c.IsActive);
+    }
+
+    public async Task<IEnumerable<UserEmailConfig>> GetAllActiveConfigsAsync()
+    {
+        return await _context.UserEmailConfigs
+            .Where(c => c.IsActive)
+            .ToListAsync();
+    }
 } 

@@ -17,13 +17,16 @@ public class EmailConfigController : ControllerBase
 {
     private readonly IUserEmailConfigRepository _configRepository;
     private readonly IEmailAnalysisService _emailAnalysisService;
+    private readonly ILogger<EmailConfigController> _logger;
 
     public EmailConfigController(
         IEmailAnalysisService emailAnalysisService,
-        IUserEmailConfigRepository configRepository)
+        IUserEmailConfigRepository configRepository,
+        ILogger<EmailConfigController> logger)
     {
         _emailAnalysisService = emailAnalysisService;
         _configRepository = configRepository;
+        _logger = logger;
     }
 
     [HttpPost]
@@ -58,7 +61,7 @@ public class EmailConfigController : ControllerBase
             await emailClient.DisconnectAsync(true);
 
             await _configRepository.CreateAsync(config);
-            await _emailAnalysisService.ScanEmailsAsync(config);
+            await _emailAnalysisService.AnalyzeRecentEmails(config);
 
             return Ok(new { message = "Email configuration added successfully" });
         }
@@ -103,15 +106,25 @@ public class EmailConfigController : ControllerBase
         return Ok(new { message = "Email configuration deleted successfully" });
     }
 
-    [HttpPost("scan")]
-    public async Task<IActionResult> ScanEmails()
+    [HttpPost("{id}/scan")]
+    public async Task<ActionResult<List<EmailAnalysisDto>>> ScanEmails(Guid id)
     {
-        var userId = GetUserIdFromToken();
-        var configs = await _configRepository.GetByUserIdAsync(userId);
+        try
+        {
+            var config = await _configRepository.GetByIdAsync(id);
+            if (config == null)
+            {
+                return NotFound();
+            }
 
-        foreach (var config in configs) await _emailAnalysisService.ScanEmailsAsync(config);
-
-        return Ok(new { message = "Email scan completed" });
+            var results = await _emailAnalysisService.AnalyzeRecentEmails(config);
+            return Ok(results);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error scanning emails for config {Id}", id);
+            return StatusCode(500, new MessageResponseDto { Message = "Error scanning emails" });
+        }
     }
 
     [HttpPost("analyze")]
@@ -125,7 +138,7 @@ public class EmailConfigController : ControllerBase
 
             foreach (var config in configs)
             {
-                var results = await _emailAnalysisService.AnalyzeAllEmails(config);
+                var results = await _emailAnalysisService.AnalyzeRecentEmails(config);
                 allResults.AddRange(results);
             }
 
