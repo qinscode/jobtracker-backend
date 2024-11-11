@@ -126,7 +126,7 @@ pipeline {
                             --name ${DOCKER_CONTAINER_NAME} \
                             --network host \
                             --restart unless-stopped \
-                            --health-cmd="curl -f http://localhost:${API_PORT}/health || exit 1" \
+                            --health-cmd="curl -f http://localhost:${API_PORT}/jobs || exit 1" \
                             --health-interval=10s \
                             --health-timeout=5s \
                             --health-retries=3 \
