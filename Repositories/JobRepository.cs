@@ -96,7 +96,7 @@ public class JobRepository : IJobRepository
     public async Task<IEnumerable<Job>> SearchJobsByTitleAsync(string searchTerm, int pageNumber, int pageSize)
     {
         return await _context.Jobs
-            .Where(j => EF.Functions.ILike(j.JobTitle, $"%{searchTerm}%"))
+            .Where(j => j.JobTitle != null && EF.Functions.ILike(j.JobTitle, $"%{searchTerm}%"))
             .Where(j => j.IsActive == true)
             .OrderByDescending(j => j.CreatedAt)
             .Skip((pageNumber - 1) * pageSize)
@@ -107,7 +107,7 @@ public class JobRepository : IJobRepository
     public async Task<int> CountJobsByTitleAsync(string searchTerm)
     {
         return await _context.Jobs
-            .Where(j => EF.Functions.ILike(j.JobTitle, $"%{searchTerm}%"))
+            .Where(j => j.JobTitle != null && EF.Functions.ILike(j.JobTitle, $"%{searchTerm}%"))
             .Where(j => j.IsActive == true)
             .CountAsync();
     }

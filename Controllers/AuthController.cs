@@ -145,12 +145,14 @@ public class AuthController : ControllerBase
 
     private string GenerateJwtToken(User user)
     {
-        var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
+        var jwtKey = _configuration["Jwt:Key"] ??
+                     throw new InvalidOperationException("JWT key is not configured");
+        var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
         var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
         var claims = new[]
         {
-            new Claim(JwtRegisteredClaimNames.Sub, user.Email),
+            new Claim(JwtRegisteredClaimNames.Sub, user.Email ?? string.Empty),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString())
         };
@@ -162,10 +164,6 @@ public class AuthController : ControllerBase
             expires: DateTime.UtcNow.AddDays(7),
             signingCredentials: credentials
         );
-
-        Console.WriteLine("Login success");
-        Console.WriteLine("Token: " + new JwtSecurityTokenHandler().WriteToken(token));
-
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
