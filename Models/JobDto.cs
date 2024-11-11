@@ -2,16 +2,16 @@ namespace JobTracker.Models;
 
 public class JobDto
 {
-    public int Id { get; set; } // Changed from string to int
-    public string JobTitle { get; set; }
-    public string BusinessName { get; set; }
-    public string WorkType { get; set; }
-    public string JobType { get; set; }
-    public string PayRange { get; set; }
-    public string Suburb { get; set; }
-    public string Area { get; set; }
-    public string Url { get; set; }
-    public string Status { get; set; }
-    public string PostedDate { get; set; }
-    public string JobDescription { get; set; }
+    public int Id { get; set; }
+    public string JobTitle { get; set; } = string.Empty;
+    public string BusinessName { get; set; } = string.Empty;
+    public string WorkType { get; set; } = string.Empty;
+    public string JobType { get; set; } = string.Empty;
+    public string PayRange { get; set; } = string.Empty;
+    public string Suburb { get; set; } = string.Empty;
+    public string Area { get; set; } = string.Empty;
+    public string Url { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public string PostedDate { get; set; } = string.Empty;
+    public string JobDescription { get; set; } = string.Empty;
 }

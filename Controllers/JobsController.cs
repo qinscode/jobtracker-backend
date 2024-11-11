@@ -230,18 +230,18 @@ public class JobsController : ControllerBase
         {
             Jobs = jobs.Select(j => new JobDto
             {
-                Id = j.Id, // Changed from string to int
-                JobTitle = j.JobTitle,
-                BusinessName = j.BusinessName,
-                WorkType = j.WorkType,
-                JobType = j.JobType,
-                PayRange = j.PayRange,
-                Suburb = j.Suburb,
-                Area = j.Area,
-                Url = j.Url,
+                Id = j.Id,
+                JobTitle = j.JobTitle ?? string.Empty,
+                BusinessName = j.BusinessName ?? string.Empty,
+                WorkType = j.WorkType ?? string.Empty,
+                JobType = j.JobType ?? string.Empty,
+                PayRange = j.PayRange ?? string.Empty,
+                Suburb = j.Suburb ?? string.Empty,
+                Area = j.Area ?? string.Empty,
+                Url = j.Url ?? string.Empty,
                 Status = "New",
-                PostedDate = j.PostedDate?.ToString("yyyy-MM-dd"),
-                JobDescription = j.JobDescription
+                PostedDate = j.PostedDate?.ToString("yyyy-MM-dd") ?? string.Empty,
+                JobDescription = j.JobDescription ?? string.Empty
             }),
             TotalCount = totalCount,
             PageNumber = pageNumber,

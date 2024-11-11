@@ -13,7 +13,7 @@ public class UserJobRepository : IUserJobRepository
         _context = context;
     }
 
-    public async Task<UserJob> GetUserJobByIdAsync(Guid id)
+    public async Task<UserJob?> GetUserJobByIdAsync(Guid id)
     {
         return await _context.UserJobs
             .Include(uj => uj.User)
@@ -145,7 +145,9 @@ public class UserJobRepository : IUserJobRepository
         int pageNumber, int pageSize)
     {
         var query = _context.UserJobs
-            .Where(uj => uj.UserId == userId);
+            .Where(uj => uj.UserId == userId)
+            .Include(uj => uj.Job)
+            .Where(uj => uj.Job != null);
 
         if (status.HasValue)
         {
@@ -157,37 +159,40 @@ public class UserJobRepository : IUserJobRepository
         {
             searchTerm = searchTerm.ToLower();
             query = query.Where(uj =>
-                EF.Functions.ILike(uj.Job.JobTitle, $"%{searchTerm}%") ||
-                EF.Functions.ILike(uj.Job.BusinessName, $"%{searchTerm}%") ||
-                EF.Functions.ILike(uj.Job.JobDescription, $"%{searchTerm}%"));
+                (uj.Job.JobTitle != null && EF.Functions.ILike(uj.Job.JobTitle, $"%{searchTerm}%")) ||
+                (uj.Job.BusinessName != null && EF.Functions.ILike(uj.Job.BusinessName, $"%{searchTerm}%")) ||
+                (uj.Job.JobDescription != null && EF.Functions.ILike(uj.Job.JobDescription, $"%{searchTerm}%")));
         }
 
-        return await query
+        var jobs = await query
             .Select(uj => uj.Job)
             .OrderByDescending(j => j.CreatedAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
+
+        return jobs.Where(j => j != null).Cast<Job>();
     }
 
     public async Task<int> CountJobsByTitleAsync(Guid userId, string searchTerm, UserJobStatus? status)
     {
         var query = _context.UserJobs
-            .Where(uj => uj.UserId == userId);
+            .Where(uj => uj.UserId == userId)
+            .Include(uj => uj.Job)
+            .Where(uj => uj.Job != null);
 
         if (status.HasValue)
         {
             query = query.Where(uj => uj.Status == status.Value);
         }
 
-        // 添加搜索条件
         if (!string.IsNullOrWhiteSpace(searchTerm))
         {
             searchTerm = searchTerm.ToLower();
             query = query.Where(uj =>
-                EF.Functions.ILike(uj.Job.JobTitle, $"%{searchTerm}%") ||
-                EF.Functions.ILike(uj.Job.BusinessName, $"%{searchTerm}%") ||
-                EF.Functions.ILike(uj.Job.JobDescription, $"%{searchTerm}%"));
+                (uj.Job.JobTitle != null && EF.Functions.ILike(uj.Job.JobTitle, $"%{searchTerm}%")) ||
+                (uj.Job.BusinessName != null && EF.Functions.ILike(uj.Job.BusinessName, $"%{searchTerm}%")) ||
+                (uj.Job.JobDescription != null && EF.Functions.ILike(uj.Job.JobDescription, $"%{searchTerm}%")));
         }
 
         return await query.CountAsync();

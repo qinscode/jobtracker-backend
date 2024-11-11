@@ -350,7 +350,7 @@ public class UserJobsController : ControllerBase
         };
     }
 
-    private async Task<ActionResult> ValidateCreateUserJobDto(int jobId)
+    private async Task<ActionResult?> ValidateCreateUserJobDto(int jobId)
     {
         var job = await _jobRepository.GetJobByIdAsync(jobId);
         if (job == null) return BadRequest(new { message = "Invalid JobId" });
@@ -358,7 +358,7 @@ public class UserJobsController : ControllerBase
         return null;
     }
 
-    private async Task<ActionResult> ValidateUpdateUserJobDto(Guid id, UpdateUserJobDto updateUserJobDto)
+    private async Task<ActionResult?> ValidateUpdateUserJobDto(Guid id, UpdateUserJobDto updateUserJobDto)
     {
         var existingUserJob = await _userJobRepository.GetUserJobByIdAsync(id);
         if (existingUserJob == null) return NotFound(new { message = $"UserJob with id {id} not found" });

@@ -118,7 +118,7 @@ public class AuthController : ControllerBase
                 {
                     Email = googleUser.Email,
                     Username = !string.IsNullOrEmpty(googleUser.Name) ? googleUser.Name : googleUser.Email,
-                    Password = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString()), 
+                    Password = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString()),
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
@@ -175,30 +175,30 @@ public class LoginModel
 {
     [Required(ErrorMessage = "Email is required")]
     [EmailAddress(ErrorMessage = "Invalid email address")]
-    public string Email { get; set; }
+    public string Email { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "Password is required")]
-    public string Password { get; set; }
+    public string Password { get; set; } = string.Empty;
 }
 
 public class RegisterModel
 {
     [Required(ErrorMessage = "Email is required")]
     [EmailAddress(ErrorMessage = "Invalid email address")]
-    public string Email { get; set; }
+    public string Email { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "Username is required")]
-    public string Username { get; set; }
+    public string Username { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "Password is required")]
     [MinLength(6, ErrorMessage = "Password must be at least 6 characters long")]
-    public string Password { get; set; }
+    public string Password { get; set; } = string.Empty;
 }
 
 public class GoogleLoginModel
 {
     [Required(ErrorMessage = "Google token is required")]
-    public string access_token { get; set; }
+    public string access_token { get; set; } = string.Empty;
 }
 
 public class GoogleUserInfo
