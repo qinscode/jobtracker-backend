@@ -7,60 +7,34 @@ EXPOSE 80
 FROM mcr.microsoft.com/dotnet/sdk:7.0 AS build
 WORKDIR /src
 
-# 定义构建参数
-ARG POSTGRES_USER
-ARG POSTGRES_PASS
-ARG JWT_KEY
-ARG JWT_ISSUER
-ARG JWT_AUDIENCE
-ARG API_PORT
-ARG GOOGLE_CLIENT_ID
-ARG GOOGLE_CLIENT_SECRET
-
-# 设置构建时的环境变量
-ENV POSTGRES_USER=$POSTGRES_USER
-ENV POSTGRES_PASS=$POSTGRES_PASS
-ENV JWT_KEY=$JWT_KEY
-ENV JWT_ISSUER=$JWT_ISSUER
-ENV JWT_AUDIENCE=$JWT_AUDIENCE
-ENV API_PORT=$API_PORT
-ENV GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID
-ENV GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET
-
-# 复制项目文件并构建
-COPY . .
+# 首先复制项目文件以利用层缓存
+COPY ["JobTracker.csproj", "./"]
 RUN dotnet restore "JobTracker.csproj"
+
+# 复制其余源代码
+COPY . .
 RUN dotnet build "JobTracker.csproj" -c Release -o /app/build
 
 # 发布应用
 FROM build AS publish
-RUN dotnet publish "JobTracker.csproj" -c Release -o /app/publish
+RUN dotnet publish "JobTracker.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 # 最终运行时镜像
 FROM base AS final
 WORKDIR /app
 
-# 定义运行时参数
-ARG POSTGRES_USER
-ARG POSTGRES_PASS
-ARG JWT_KEY
-ARG JWT_ISSUER
-ARG JWT_AUDIENCE
-ARG API_PORT
-ARG GOOGLE_CLIENT_ID
-ARG GOOGLE_CLIENT_SECRET
+# 创建非 root 用户
+RUN adduser --disabled-password --gecos "" appuser && \
+    chown -R appuser:appuser /app
 
-# 设置运行时环境变量
-ENV ASPNETCORE_ENVIRONMENT=Production
-ENV POSTGRES_USER=$POSTGRES_USER
-ENV POSTGRES_PASS=$POSTGRES_PASS
-ENV JWT_KEY=$JWT_KEY
-ENV JWT_ISSUER=$JWT_ISSUER
-ENV JWT_AUDIENCE=$JWT_AUDIENCE
-ENV ASPNETCORE_URLS=http://+:${API_PORT}
-ENV GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID
-ENV GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET
+# 定义运行时环境变量
+ENV ASPNETCORE_ENVIRONMENT=Production \
+    ASPNETCORE_URLS=http://+:80
 
 # 复制发布的应用
-COPY --from=publish /app/publish .
+COPY --from=publish --chown=appuser:appuser /app/publish .
+
+# 切换到非 root 用户
+USER appuser
+
 ENTRYPOINT ["dotnet", "JobTracker.dll"]
