@@ -2,151 +2,136 @@ pipeline {
     agent any
     
     environment {
+        DOTNET_ENVIRONMENT = 'Production'
+        DOCKER_IMAGE_NAME = 'job-tracker-api'
+        DOCKER_CONTAINER_NAME = 'job-tracker-api-container'
+        DOCKER_IMAGE_TAG = "${BUILD_NUMBER}"
+        
         // 数据库配置
-        DB_HOST = credentials('postgres-credentials')
+        DB_HOST = credentials('DB_HOST')
         DB_NAME = credentials('DB_USERNAME')
         DB_CREDS = credentials('DB_PASSWORD')
         DB_PORT = credentials('DB_PORT')
         
+        // API配置
         API_PORT = credentials('API_PORT')
         
-        // JWT 配置
+        // JWT配置
         JWT_SECRET = credentials('jwt-secret')
         JWT_ISSUER = credentials('JWT_ISSUER')
         JWT_AUDIENCE = credentials('JWT_AUDIENCE')
         
-        // Google OAuth 配置
+        // Google OAuth配置
         GOOGLE_CLIENT_ID = credentials('Authentication_Google_ClientId')
         GOOGLE_SECRET = credentials('Authentication_Google_ClientSecret')
         
-        // Gemini API 配置
+        // Gemini API配置
         GEMINI_API_KEY = credentials('GEMINI_API_KEY')
         GEMINI_API_ENDPOINT = credentials('GEMINI_API_ENDPOINT')
     }
     
     stages {
-        stage('Checkout') {
-            steps {
-                checkout scm
-            }
-        }
-
-        stage('Prepare Configuration') {
+        stage('Configuration Setup') {
             steps {
                 script {
-                    // 创建临时配置文件
-                    sh 'cp appsettings.json appsettings.tmp.json'
+                    def configTemplate = readFile 'appsettings.json'
+                    def configContent = configTemplate
+                        .replace('#{DB_HOST}', env.DB_HOST)
+                        .replace('#{DB_NAME}', env.DB_NAME)
+                        .replace('#{DB_PASSWORD}', env.DB_CREDS)
+                        .replace('#{DB_PORT}', env.DB_PORT)
+                        .replace('#{JWT_SECRET}', env.JWT_SECRET)
+                        .replace('#{JWT_ISSUER}', env.JWT_ISSUER)
+                        .replace('#{JWT_AUDIENCE}', env.JWT_AUDIENCE)
+                        .replace('#{GOOGLE_CLIENT_ID}', env.GOOGLE_CLIENT_ID)
+                        .replace('#{GOOGLE_SECRET}', env.GOOGLE_SECRET)
+                        .replace('#{GEMINI_API_KEY}', env.GEMINI_API_KEY)
+                        .replace('#{GEMINI_API_ENDPOINT}', env.GEMINI_API_ENDPOINT)
+                    
+                    writeFile file: 'appsettings.Production.json', text: configContent
                 }
             }
         }
-
-        stage('Configure Database') {
-            steps {
-                script {
-                    sh """
-                        escapedHost=\$(echo \"${DB_HOST}\" | sed 's/[&/\\]/\\\\&/g')
-                        escapedName=\$(echo \"${DB_NAME}\" | sed 's/[&/\\]/\\\\&/g')
-                        escapedUser=\$(echo \"${DB_CREDS_USR}\" | sed 's/[&/\\]/\\\\&/g')
-                        escapedPass=\$(echo \"${DB_CREDS_PSW}\" | sed 's/[&/\\]/\\\\&/g')
-                        escapedPort=\$(echo \"${DB_PORT}\" | sed 's/[&/\\]/\\\\&/g')
-                        
-                        sed -i "s/#{DB_HOST}/\${escapedHost}/g" appsettings.tmp.json
-                        sed -i "s/#{DB_NAME}/\${escapedName}/g" appsettings.tmp.json
-                        sed -i "s/#{DB_USERNAME}/\${escapedUser}/g" appsettings.tmp.json
-                        sed -i "s/#{DB_PASSWORD}/\${escapedPass}/g" appsettings.tmp.json
-                        sed -i "s/#{DB_PORT}/\${escapedPort}/g" appsettings.tmp.json
-                    """
-                }
-            }
-        }
-
-        stage('Configure JWT') {
-            steps {
-                script {
-                    sh """
-                        escapedSecret=\$(echo \"${JWT_SECRET}\" | sed 's/[&/\\]/\\\\&/g')
-                        escapedIssuer=\$(echo \"${JWT_ISSUER}\" | sed 's/[&/\\]/\\\\&/g')
-                        escapedAudience=\$(echo \"${JWT_AUDIENCE}\" | sed 's/[&/\\]/\\\\&/g')
-                        
-                        sed -i "s/#{JWT_SECRET}/\${escapedSecret}/g" appsettings.tmp.json
-                        sed -i "s/#{JWT_ISSUER}/\${escapedIssuer}/g" appsettings.tmp.json
-                        sed -i "s/#{JWT_AUDIENCE}/\${escapedAudience}/g" appsettings.tmp.json
-                    """
-                }
-            }
-        }
-
-        stage('Configure Google Auth') {
-            steps {
-                script {
-                    sh """
-                        escapedClientId=\$(echo \"${GOOGLE_CLIENT_ID}\" | sed 's/[&/\\]/\\\\&/g')
-                        escapedSecret=\$(echo \"${GOOGLE_SECRET}\" | sed 's/[&/\\]/\\\\&/g')
-                        
-                        sed -i "s/#{GOOGLE_CLIENT_ID}/\${escapedClientId}/g" appsettings.tmp.json
-                        sed -i "s/#{GOOGLE_SECRET}/\${escapedSecret}/g" appsettings.tmp.json
-                    """
-                }
-            }
-        }
-
-        stage('Configure Gemini API') {
-            steps {
-                script {
-                    sh """
-                        escapedKey=\$(echo \"${GEMINI_API_KEY}\" | sed 's/[&/\\]/\\\\&/g')
-                        escapedEndpoint=\$(echo \"${GEMINI_API_ENDPOINT}\" | sed 's/[&/\\]/\\\\&/g')
-                        
-                        sed -i "s/#{GEMINI_API_KEY}/\${escapedKey}/g" appsettings.tmp.json
-                        sed -i "s|#{GEMINI_API_ENDPOINT}|\${escapedEndpoint}|g" appsettings.tmp.json
-                    """
-                }
-            }
-        }
-
-        stage('Validate Configuration') {
-            steps {
-                script {
-                    sh '''
-                        # 检查 JSON 格式是否有效
-                        if ! jq empty appsettings.tmp.json; then
-                            echo "Error: Invalid JSON format"
-                            exit 1
-                        fi
-                        
-                        # 检查所有占位符是否都已替换
-                        if grep -q "#{.*}" appsettings.tmp.json; then
-                            echo "Error: Some placeholders were not replaced"
-                            exit 1
-                        fi
-                        
-                        # 替换原始配置文件
-                        mv appsettings.tmp.json appsettings.json
-                    '''
-                }
-            }
-        }
-
+        
         stage('Build Docker Image') {
             steps {
                 script {
-                    sh '''
-                        docker stop job-tracker-api-container || true
-                        docker rm job-tracker-api-container || true
-                        docker build -t job-tracker-api .
+                    writeFile file: 'Dockerfile', text: '''
+                        FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+                        WORKDIR /app
+                        EXPOSE ${API_PORT}
+
+                        FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+                        WORKDIR /src
+                        COPY ["JobTracker.API/JobTracker.API.csproj", "JobTracker.API/"]
+                        RUN dotnet restore "JobTracker.API/JobTracker.API.csproj"
+                        COPY . .
+                        RUN dotnet build "JobTracker.API/JobTracker.API.csproj" -c Release -o /app/build
+
+                        FROM build AS publish
+                        RUN dotnet publish "JobTracker.API/JobTracker.API.csproj" -c Release -o /app/publish
+
+                        FROM base AS final
+                        WORKDIR /app
+                        COPY --from=publish /app/publish .
+                        COPY appsettings.Production.json ./appsettings.json
+                        ENTRYPOINT ["dotnet", "JobTracker.API.dll"]
                     '''
+                    
+                    // 构建Docker镜像
+                    sh """
+                        docker build -t ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} .
+                        docker tag ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} ${DOCKER_IMAGE_NAME}:latest
+                    """
                 }
             }
         }
-
+        
         stage('Deploy') {
             steps {
                 script {
+                    // 停止并删除旧容器（如果存在）
+                    sh """
+                        if docker ps -a | grep -q ${DOCKER_CONTAINER_NAME}; then
+                            docker stop ${DOCKER_CONTAINER_NAME} || true
+                            docker rm ${DOCKER_CONTAINER_NAME} || true
+                        fi
+                    """
+                    
+                    // 使用host网络模式启动新容器
                     sh """
                         docker run -d \
-                            --name job-tracker-api-container \
-                            -p ${API_PORT}:80 \
-                            job-tracker-api
+                            --name ${DOCKER_CONTAINER_NAME} \
+                            --network host \
+                            --restart unless-stopped \
+                            -e ASPNETCORE_ENVIRONMENT=Production \
+                            ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}
+                    """
+                    
+                    // 验证容器是否成功启动
+                    sh """
+                        sleep 10
+                        if ! docker ps | grep -q ${DOCKER_CONTAINER_NAME}; then
+                            echo "Container failed to start"
+                            docker logs ${DOCKER_CONTAINER_NAME}
+                            exit 1
+                        fi
+                        
+                        echo "Container started successfully"
+                        docker logs ${DOCKER_CONTAINER_NAME}
+                    """
+                }
+            }
+        }
+        
+        stage('Clean Up') {
+            steps {
+                script {
+                    // 保留最近3个版本的镜像
+                    sh """
+                        if [ \$(docker images ${DOCKER_IMAGE_NAME} -q | wc -l) -gt 3 ]; then
+                            docker images ${DOCKER_IMAGE_NAME} -q | tail -n +4 | xargs docker rmi -f || true
+                        fi
                     """
                 }
             }
@@ -154,17 +139,22 @@ pipeline {
     }
     
     post {
+        always {
+            // 清理敏感文件和构建产物
+            sh '''
+                rm -f appsettings.Production.json
+                rm -f Dockerfile
+            '''
+            cleanWs()
+        }
         success {
-            echo 'Deployment successful!'
+            echo 'Job Tracker API 部署成功!'
+            echo "容器名称: ${DOCKER_CONTAINER_NAME}"
+            echo "镜像版本: ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}"
         }
         failure {
-            echo 'Deployment failed. Please check the logs for details.'
-            // 清理临时文件
-            sh 'rm -f appsettings.tmp.json || true'
-        }
-        always {
-            // 清理工作空间
-            cleanWs()
+            echo '部署失败，请检查日志!'
+            sh "docker logs ${DOCKER_CONTAINER_NAME} || true"
         }
     }
 }
