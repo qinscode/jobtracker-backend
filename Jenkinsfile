@@ -2,74 +2,56 @@ pipeline {
     agent any
     
     environment {
-        // sensitive environment variables
-        POSTGRES_CREDS = credentials('postgres-credentials')
+        // 数据库配置
+        DB_HOST = credentials('postgres-credentials')
+        DB_NAME = credentials('DB_USERNAME')
+        DB_CREDS = credentials('DB_PASSWORD')
+        DB_PORT = credentials('DB_PORT')
+        
+        API_PORT = credentials('API_PORT')
+        
+        // JWT 配置
         JWT_SECRET = credentials('jwt-secret')
-        GOOGLE_AUTH = credentials('Authentication_Google_ClientId')
+        JWT_ISSUER = credentials('JWT_ISSUER')
+        JWT_AUDIENCE = credentials('jwt-audience')
+        
+        // Google OAuth 配置
+        GOOGLE_CLIENT_ID = credentials('Authentication_Google_ClientId')
         GOOGLE_SECRET = credentials('Authentication_Google_ClientSecret')
         
-        // non-sensitive environment variables
-        JWT_ISSUER = 'JobTrackerAPI'
-        JWT_AUDIENCE = 'JobTrackerClient'
-        API_PORT = '5052'
-        DOCKER_IMAGE_NAME = 'job-tracker-api'
-        DOCKER_CONTAINER_NAME = 'job-tracker-api-container'
+        // Gemini API 配置
+        GEMINI_API_KEY = credentials('GEMINI_API_KEY')
+        GEMINI_API_ENDPOINT = credentials('GEMINI_API_ENDPOINT')
     }
     
     stages {
-        stage('Checkout') {
+        stage('Deploy') {
             steps {
-                checkout scm
-            }
-        }
-        
-        stage('Build Docker Image') {
-            steps {
-                withCredentials([
-                    usernamePassword(credentialsId: 'postgres-credentials', usernameVariable: 'DB_USER', passwordVariable: 'DB_PASS'),
-                    string(credentialsId: 'jwt-secret', variable: 'JWT_KEY'),
-                    string(credentialsId: 'Authentication_Google_ClientId', variable: 'GOOGLE_CLIENT_ID'),
-                    string(credentialsId: 'Authentication_Google_ClientSecret', variable: 'GOOGLE_CLIENT_SECRET')
-                ]) {
+                script {
                     sh '''
-                        docker build -t ${DOCKER_IMAGE_NAME} \
-                        --build-arg POSTGRES_USER="$DB_USER" \
-                        --build-arg POSTGRES_PASS="$DB_PASS" \
-                        --build-arg JWT_KEY="$JWT_KEY" \
-                        --build-arg JWT_ISSUER="$JWT_ISSUER" \
-                        --build-arg JWT_AUDIENCE="$JWT_AUDIENCE" \
-                        --build-arg API_PORT="$API_PORT" \
-                        --build-arg GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID" \
-                        --build-arg GOOGLE_CLIENT_SECRET="$GOOGLE_CLIENT_SECRET" \
-                        .
-                    '''
-                }
-            }
-        }
-        
-        stage('Deploy Docker Container') {
-            steps {
-                withCredentials([
-                    usernamePassword(credentialsId: 'postgres-credentials', usernameVariable: 'DB_USER', passwordVariable: 'DB_PASS'),
-                    string(credentialsId: 'jwt-secret', variable: 'JWT_KEY'),
-                    string(credentialsId: 'Authentication_Google_ClientId', variable: 'GOOGLE_CLIENT_ID'),
-                    string(credentialsId: 'Authentication_Google_ClientSecret', variable: 'GOOGLE_CLIENT_SECRET')
-                ]) {
-                    sh '''
-                        docker stop ${DOCKER_CONTAINER_NAME} || true
-                        docker rm ${DOCKER_CONTAINER_NAME} || true
+                        # 替换配置文件中的占位符
+                        sed -i "s/#{DB_HOST}/$DB_HOST/g" appsettings.json
+                        sed -i "s/#{DB_NAME}/$DB_NAME/g" appsettings.json
+                        sed -i "s/#{DB_USERNAME}/$DB_CREDS_USR/g" appsettings.json
+                        sed -i "s/#{DB_PASSWORD}/$DB_CREDS_PSW/g" appsettings.json
+                        sed -i "s/#{DB_PORT}/$DB_PORT/g" appsettings.json
+                        
+                        sed -i "s/#{JWT_SECRET}/$JWT_SECRET/g" appsettings.json
+                        sed -i "s/#{JWT_ISSUER}/$JWT_ISSUER/g" appsettings.json
+                        sed -i "s/#{JWT_AUDIENCE}/$JWT_AUDIENCE/g" appsettings.json
+                        
+                        sed -i "s/#{GOOGLE_CLIENT_ID}/$GOOGLE_CLIENT_ID/g" appsettings.json
+                        sed -i "s/#{GOOGLE_SECRET}/$GOOGLE_SECRET/g" appsettings.json
+                        
+                        sed -i "s/#{GEMINI_API_KEY}/$GEMINI_API_KEY/g" appsettings.json
+                        sed -i "s|#{GEMINI_API_ENDPOINT}|$GEMINI_API_ENDPOINT|g" appsettings.json
+                        
+                        # Docker 构建和运行
+                        docker build -t job-tracker-api .
                         docker run -d \
-                        --name ${DOCKER_CONTAINER_NAME} \
-                        --network host \
-                        -e POSTGRES_USER="$DB_USER" \
-                        -e POSTGRES_PASS="$DB_PASS" \
-                        -e JWT_KEY="$JWT_KEY" \
-                        -e JWT_ISSUER="$JWT_ISSUER" \
-                        -e JWT_AUDIENCE="$JWT_AUDIENCE" \
-                        -e API_PORT="$API_PORT" \
-                        -e GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID" \
-                        -e GOOGLE_CLIENT_SECRET="$GOOGLE_CLIENT_SECRET" \
-                        ${DOCKER_IMAGE_NAME}
+                            --name job-tracker-api-container \
+                            -p $API_PORT:80 \
+                            job-tracker-api
                     '''
                 }
             }
