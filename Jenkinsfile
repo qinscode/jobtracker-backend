@@ -126,29 +126,38 @@ pipeline {
                             --name ${DOCKER_CONTAINER_NAME} \
                             --network host \
                             --restart unless-stopped \
-                            --health-cmd="curl -f http://localhost:${API_PORT}/jobs || exit 1" \
-                            --health-interval=10s \
-                            --health-timeout=5s \
-                            --health-retries=3 \
                             -e ASPNETCORE_ENVIRONMENT=Production \
                             ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}
                     """
                     
-                    // Wait for container health check
-                    def healthy = false
-                    for (int i = 0; i < maxRetries; i++) {
-                        def status = sh(script: "docker inspect --format='{{.State.Health.Status}}' ${DOCKER_CONTAINER_NAME}", returnStdout: true).trim()
-                        if (status == 'healthy') {
-                            healthy = true
-                            break
-                        }
-                        sleep retryInterval
-                    }
+//                     sh """
+//                         docker run -d \
+//                             --name ${DOCKER_CONTAINER_NAME} \
+//                             --network host \
+//                             --restart unless-stopped \
+//                             --health-cmd="curl -f http://localhost:${API_PORT}/jobs || exit 1" \
+//                             --health-interval=10s \
+//                             --health-timeout=5s \
+//                             --health-retries=3 \
+//                             -e ASPNETCORE_ENVIRONMENT=Production \
+//                             ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}
+//                     """
                     
-                    if (!healthy) {
-                        sh "docker logs ${DOCKER_CONTAINER_NAME}"
-                        error "Container health check failed after ${maxRetries} attempts"
-                    }
+//                     // Wait for container health check
+//                     def healthy = false
+//                     for (int i = 0; i < maxRetries; i++) {
+//                         def status = sh(script: "docker inspect --format='{{.State.Health.Status}}' ${DOCKER_CONTAINER_NAME}", returnStdout: true).trim()
+//                         if (status == 'healthy') {
+//                             healthy = true
+//                             break
+//                         }
+//                         sleep retryInterval
+//                     }
+//                     
+//                     if (!healthy) {
+//                         sh "docker logs ${DOCKER_CONTAINER_NAME}"
+//                         error "Container health check failed after ${maxRetries} attempts"
+//                     }
                 }
             }
         }
