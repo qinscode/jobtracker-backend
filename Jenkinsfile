@@ -9,7 +9,7 @@ pipeline {
         
         // 数据库配置
         DB_HOST = credentials('DB_HOST')
-        DB_NAME = credentials('DB_USERNAME')
+        DB_USERNAME = credentials('DB_USERNAME')
         DB_CREDS = credentials('DB_PASSWORD')
         DB_PORT = credentials('DB_PORT')
         DB_DATABASE = credentials('DB_DATABASE')
@@ -38,7 +38,7 @@ pipeline {
                     def configTemplate = readFile 'appsettings.json'
                     def configContent = configTemplate
                         .replace('#{DB_HOST}', env.DB_HOST)
-                        .replace('#{DB_NAME}', env.DB_NAME)
+                        .replace('#{DB_USERNAME}', env.DB_USERNAME)
                         .replace('#{DB_PASSWORD}', env.DB_CREDS)
                         .replace('#{DB_PORT}', env.DB_PORT)
                         .replace('#{JWT_SECRET}', env.JWT_SECRET)
