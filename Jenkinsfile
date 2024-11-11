@@ -1,159 +1,170 @@
 pipeline {
     agent any
     
-    options {
-        timeout(time: 30, unit: 'MINUTES')  // set timeout for the pipeline
-        disableConcurrentBuilds()           // disable concurrent builds
-        ansiColor('xterm')                  // enable ANSI color output
+    environment {
+        DOTNET_ENVIRONMENT = 'Production'
+        DOCKER_IMAGE_NAME = 'job-tracker-api'
+        DOCKER_CONTAINER_NAME = 'job-tracker-api-container'
+        DOCKER_IMAGE_TAG = "${BUILD_NUMBER}"
+        
+        // 数据库配置
+        DB_HOST = credentials('DB_HOST')
+        DB_USERNAME = credentials('DB_USERNAME')
+        DB_CREDS = credentials('DB_PASSWORD')
+        DB_DATABASE = credentials('DB_DATABASE')
+        
+        // API配置
+        API_PORT = credentials('API_PORT')
+        
+        // JWT配置
+        JWT_SECRET = credentials('jwt-secret')
+        JWT_ISSUER = credentials('JWT_ISSUER')
+        JWT_AUDIENCE = credentials('JWT_AUDIENCE')
+        
+        // Google OAuth配置
+        GOOGLE_CLIENT_ID = credentials('Authentication_Google_ClientId')
+        GOOGLE_SECRET = credentials('Authentication_Google_ClientSecret')
+        
+        // Gemini API配置
+        GEMINI_API_KEY = credentials('GEMINI_API_KEY')
+        GEMINI_API_ENDPOINT = credentials('GEMINI_API_ENDPOINT')
+        
+        // 添加构建超时设置
+        BUILD_TIMEOUT = '30'
     }
     
-    environment {
-        // 应用配置
-        APP_NAME = 'job-tracker-api'
-        DOCKER_IMAGE = "${APP_NAME}"
-        DOCKER_TAG = "${BUILD_NUMBER}"
-        CONTAINER_NAME = "${APP_NAME}-container"
-        
-        // 凭据配置 - 使用 credentials 绑定
-        DATABASE_CREDS = credentials('database-credentials')     
-        JWT_CREDS = credentials('jwt-credentials')               
-        GOOGLE_CREDS = credentials('google-oauth-credentials')   
-        GEMINI_CREDS = credentials('gemini-api-credentials')     
-        
-        // 运行时配置
-        DOTNET_ENVIRONMENT = 'Production'
-        MAX_IMAGES_TO_KEEP = 3
+    options {
+        timeout(time: "${env.BUILD_TIMEOUT}" as Integer, unit: 'MINUTES')
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        ansiColor('xterm')
     }
     
     stages {
-        stage('Prepare') {
+        stage('Environment Validation') {
             steps {
                 script {
-                    // 清理工作空间
-                    cleanWs()
+                    // 验证必要的环境变量和凭据
+                    def requiredCredentials = [
+                        'DB_HOST', 'DB_USERNAME', 'DB_CREDS', 'DB_DATABASE',
+                        'API_PORT', 'jwt-secret', 'JWT_ISSUER', 'JWT_AUDIENCE',
+                        'Authentication_Google_ClientId', 'Authentication_Google_ClientSecret',
+                        'GEMINI_API_KEY', 'GEMINI_API_ENDPOINT'
+                    ]
                     
-                    // 检出代码
-                    checkout scm
-                    
-                    // 验证必要工具
-                    sh '''
-                        docker --version
-                        dotnet --version
-                    '''
-                }
-            }
-        }
-        
-        stage('Build Configuration') {
-            steps {
-                script {
-                    // 生成配置文件
-                    def config = readJSON file: 'appsettings.json'
-                    
-                    // 更新配置
-                    config.ConnectionStrings.DefaultConnection = "Host=${DATABASE_CREDS_USR};Database=${env.DB_DATABASE};Username=${DATABASE_CREDS_USR};Password=${DATABASE_CREDS_PSW}"
-                    config.Jwt.Secret = "${JWT_CREDS_PSW}"
-                    config.Jwt.Issuer = "${JWT_CREDS_USR}"
-                    config.Authentication.Google.ClientId = "${GOOGLE_CREDS_USR}"
-                    config.Authentication.Google.ClientSecret = "${GOOGLE_CREDS_PSW}"
-                    config.Gemini.ApiKey = "${GEMINI_CREDS_PSW}"
-                    config.Gemini.ApiEndpoint = "${GEMINI_CREDS_USR}"
-                    
-                    // 保存新配置
-                    writeJSON file: 'appsettings.Production.json', json: config
-                }
-            }
-        }
-        
-        stage('Build & Push Docker Image') {
-            steps {
-                script {
-                    try {
-                        // 构建 Docker 镜像
-                        docker.build("${DOCKER_IMAGE}:${DOCKER_TAG}", "--no-cache .")
-                        
-                        // 标记最新版本
-                        sh "docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:latest"
-                        
-                        // 可选：推送到私有仓库
-                        // docker.withRegistry('https://your-registry', 'registry-credentials') {
-                        //     docker.image("${DOCKER_IMAGE}:${DOCKER_TAG}").push()
-                        //     docker.image("${DOCKER_IMAGE}:latest").push()
-                        // }
-                    } catch (Exception e) {
-                        currentBuild.result = 'FAILURE'
-                        error "Docker 构建失败: ${e.message}"
-                    }
-                }
-            }
-        }
-        
-        stage('Deploy') {
-            steps {
-                timeout(time: 5, unit: 'MINUTES') {  // 部署超时设置
-                    script {
-                        try {
-                            // 优雅停止旧容器
-                            sh """
-                                if docker ps -a | grep -q ${CONTAINER_NAME}; then
-                                    echo "正在停止旧容器..."
-                                    docker stop ${CONTAINER_NAME} || true
-                                    docker rm ${CONTAINER_NAME} || true
-                                fi
-                            """
-                            
-                            // 启动新容器
-                            sh """
-                                docker run -d \
-                                    --name ${CONTAINER_NAME} \
-                                    --network host \
-                                    --restart unless-stopped \
-                                    --health-cmd "curl -f http://localhost/health || exit 1" \
-                                    --health-interval 30s \
-                                    --health-timeout 10s \
-                                    --health-retries 3 \
-                                    -e ASPNETCORE_ENVIRONMENT=${DOTNET_ENVIRONMENT} \
-                                    ${DOCKER_IMAGE}:${DOCKER_TAG}
-                            """
-                            
-                            // 等待容器健康检查
-                            sh """
-                                echo "等待容器启动..."
-                                attempt=1
-                                max_attempts=10
-                                until docker ps --filter "name=${CONTAINER_NAME}" --filter "health=healthy" | grep -q "${CONTAINER_NAME}" || [ \$attempt -eq \$max_attempts ]; do
-                                    echo "等待健康检查通过... (尝试 \$attempt/\$max_attempts)"
-                                    sleep 5
-                                    attempt=\$((attempt + 1))
-                                done
-                                
-                                if [ \$attempt -eq \$max_attempts ]; then
-                                    echo "容器健康检查失败"
-                                    docker logs ${CONTAINER_NAME}
-                                    exit 1
-                                fi
-                                
-                                echo "容器已成功启动并通过健康检查"
-                            """
-                        } catch (Exception e) {
-                            currentBuild.result = 'FAILURE'
-                            error "部署失败: ${e.message}"
+                    requiredCredentials.each { credential ->
+                        if (!env.getProperty(credential)) {
+                            error "Missing required credential: ${credential}"
                         }
                     }
                 }
             }
         }
         
-        stage('Cleanup') {
+        stage('Configuration Setup') {
+            steps {
+                script {
+                    // 添加错误处理
+                    try {
+                        def configTemplate = readFile 'appsettings.json'
+                        def configContent = configTemplate
+                            .replace('#{DB_HOST}', env.DB_HOST)
+                            .replace('#{DB_USERNAME}', env.DB_USERNAME)
+                            .replace('#{DB_PASSWORD}', env.DB_CREDS)
+                            .replace('#{JWT_SECRET}', env.JWT_SECRET)
+                            .replace('#{JWT_ISSUER}', env.JWT_ISSUER)
+                            .replace('#{JWT_AUDIENCE}', env.JWT_AUDIENCE)
+                            .replace('#{GOOGLE_CLIENT_ID}', env.GOOGLE_CLIENT_ID)
+                            .replace('#{GOOGLE_SECRET}', env.GOOGLE_SECRET)
+                            .replace('#{GEMINI_API_KEY}', env.GEMINI_API_KEY)
+                            .replace('#{GEMINI_API_ENDPOINT}', env.GEMINI_API_ENDPOINT)
+                            .replace('#{DB_DATABASE}', env.DB_DATABASE)
+                        
+                        writeFile file: 'appsettings.Production.json', text: configContent
+                    } catch (Exception e) {
+                        error "配置文件处理失败: ${e.message}"
+                    }
+                }
+            }
+        }
+        
+        stage('Build Docker Image') {
             steps {
                 script {
                     try {
-                        // 清理旧镜像
+                        // 添加构建参数以提高构建性能
                         sh """
-                            echo "清理旧镜像..."
-                            if [ \$(docker images ${DOCKER_IMAGE} -q | wc -l) -gt ${MAX_IMAGES_TO_KEEP} ]; then
-                                docker images ${DOCKER_IMAGE} --format '{{.ID}} {{.CreatedAt}}' | sort -k 2 -r | tail -n +\$((${MAX_IMAGES_TO_KEEP} + 1)) | awk '{print \$1}' | xargs -r docker rmi -f
-                            fi
+                            DOCKER_BUILDKIT=1 docker build \
+                                --build-arg BUILDKIT_INLINE_CACHE=1 \
+                                --cache-from ${DOCKER_IMAGE_NAME}:latest \
+                                -t ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} .
+                            
+                            docker tag ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} ${DOCKER_IMAGE_NAME}:latest
+                        """
+                    } catch (Exception e) {
+                        error "Docker 构建失败: ${e.message}"
+                    }
+                }
+            }
+        }
+        
+        stage('Container Health Check') {
+            steps {
+                script {
+                    def maxRetries = 5
+                    def retryInterval = 3
+                    
+                    // 停止并删除旧容器
+                    sh """
+                        if docker ps -a | grep -q ${DOCKER_CONTAINER_NAME}; then
+                            docker stop ${DOCKER_CONTAINER_NAME} || true
+                            docker rm ${DOCKER_CONTAINER_NAME} || true
+                        fi
+                    """
+                    
+                    // 启动新容器
+                    sh """
+                        docker run -d \
+                            --name ${DOCKER_CONTAINER_NAME} \
+                            --network host \
+                            --restart unless-stopped \
+                            --health-cmd="curl -f http://localhost:${API_PORT}/health || exit 1" \
+                            --health-interval=10s \
+                            --health-timeout=5s \
+                            --health-retries=3 \
+                            -e ASPNETCORE_ENVIRONMENT=Production \
+                            ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}
+                    """
+                    
+                    // 等待容器健康检查
+                    def healthy = false
+                    for (int i = 0; i < maxRetries; i++) {
+                        def status = sh(script: "docker inspect --format='{{.State.Health.Status}}' ${DOCKER_CONTAINER_NAME}", returnStdout: true).trim()
+                        if (status == 'healthy') {
+                            healthy = true
+                            break
+                        }
+                        sleep retryInterval
+                    }
+                    
+                    if (!healthy) {
+                        sh "docker logs ${DOCKER_CONTAINER_NAME}"
+                        error "Container health check failed after ${maxRetries} attempts"
+                    }
+                }
+            }
+        }
+        
+        stage('Clean Up') {
+            steps {
+                script {
+                    try {
+                        // 保留最近3个版本的镜像，添加错误处理
+                        sh """
+                            docker images ${DOCKER_IMAGE_NAME} --format '{{.ID}} {{.CreatedAt}}' | \
+                            sort -k2 -r | \
+                            awk 'NR>3 {print \$1}' | \
+                            xargs -r docker rmi -f || true
                         """
                     } catch (Exception e) {
                         echo "清理过程中出现警告: ${e.message}"
@@ -166,65 +177,113 @@ pipeline {
     post {
         always {
             script {
-                // 清理敏感文件
+                // 清理敏感文件和构建产物
                 sh '''
                     rm -f appsettings.Production.json
-                    rm -f *.tmp
+                    docker system prune -f
                 '''
-                
-                // 清理工作空间
-                cleanWs(
-                    cleanWhenFailure: true,
-                    cleanWhenUnstable: true,
-                    deleteDirs: true,
-                    patterns: [[pattern: '**/*.json', type: 'INCLUDE']]
-                )
+                cleanWs(cleanWhenNotBuilt: true,
+                       deleteDirs: true,
+                       disableDeferredWipeout: true,
+                       patterns: [[pattern: 'appsettings.Production.json', type: 'INCLUDE']])
             }
         }
-        
         success {
-            script {
-                // 发送成功通知
-                emailext (
-                    subject: "构建成功: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                    body: """
-                        构建成功!
+                    script {
+                        // 获取容器状态信息
+                        def containerInfo = sh(script: """
+                            echo "容器状态: \$(docker ps -f name=${DOCKER_CONTAINER_NAME} --format '{{.Status}}')"
+                            echo "运行端口: \$(docker port ${DOCKER_CONTAINER_NAME})"
+                        """, returnStdout: true).trim()
                         
-                        详情:
-                        - 项目: ${env.JOB_NAME}
-                        - 构建号: ${env.BUILD_NUMBER}
-                        - 容器名称: ${CONTAINER_NAME}
-                        - 镜像版本: ${DOCKER_IMAGE}:${DOCKER_TAG}
+                        def deploymentInfo = """
+                            Job Tracker API 部署成功!
+                            容器名称: ${DOCKER_CONTAINER_NAME}
+                            镜像版本: ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}
+                            ${containerInfo}
+                        """.stripIndent()
                         
-                        查看构建日志: ${env.BUILD_URL}console
-                    """,
-                    to: '${DEFAULT_RECIPIENTS}'
-                )
-            }
-        }
-        
-        failure {
-            script {
-                // 发送失败通知
-                emailext (
-                    subject: "构建失败: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                    body: """
-                        构建失败!
+                        echo deploymentInfo
                         
-                        详情:
-                        - 项目: ${env.JOB_NAME}
-                        - 构建号: ${env.BUILD_NUMBER}
+                        // 发送成功通知邮件
+                        emailext (
+                            subject: "构建成功: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                            body: """
+                                构建成功!
+                                
+                                详情:
+                                - 项目: ${env.JOB_NAME}
+                                - 构建号: ${env.BUILD_NUMBER}
+                                - 容器名称: ${DOCKER_CONTAINER_NAME}
+                                - 镜像版本: ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}
+                                
+                                部署信息:
+                                ${containerInfo}
+                                
+                                构建时间: ${new Date().format("yyyy-MM-dd HH:mm:ss")}
+                                持续时间: ${currentBuild.durationString}
+                                
+                                查看构建日志: ${env.BUILD_URL}console
+                            """,
+                            to: '${DEFAULT_RECIPIENTS}',
+                            mimeType: 'text/html',
+                            attachLog: true
+                        )
+                    }
+                }
+                
+                failure {
+                    script {
+                        echo '部署失败，正在收集诊断信息...'
                         
-                        失败阶段: ${currentBuild.result}
+                        // 收集诊断信息
+                        def diagnosticInfo = ""
+                        try {
+                            diagnosticInfo = sh(script: """
+                                echo "=== Docker 容器日志 ==="
+                                docker logs ${DOCKER_CONTAINER_NAME} 2>&1 || echo '无法获取容器日志'
+                                
+                                echo -e "\n=== 容器状态 ==="
+                                docker inspect ${DOCKER_CONTAINER_NAME} 2>&1 || echo '无法获取容器状态'
+                                
+                                echo -e "\n=== 系统资源状态 ==="
+                                df -h
+                                free -m
+                                docker system df
+                            """, returnStdout: true).trim()
+                        } catch (Exception e) {
+                            diagnosticInfo = "收集诊断信息时出错: ${e.message}"
+                        }
                         
-                        容器日志:
-                        ${sh(script: "docker logs ${CONTAINER_NAME} 2>&1 || echo '无法获取容器日志'", returnStdout: true)}
-                        
-                        查看构建日志: ${env.BUILD_URL}console
-                    """,
-                    to: '${DEFAULT_RECIPIENTS}'
-                )
-            }
-        }
+                        // 发送失败通知邮件
+                        emailext (
+                            subject: "构建失败: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                            body: """
+                                构建失败!
+                                
+                                详情:
+                                - 项目: ${env.JOB_NAME}
+                                - 构建号: ${env.BUILD_NUMBER}
+                                - 失败阶段: ${currentBuild.currentResult}
+                                
+                                构建信息:
+                                - 开始时间: ${new Date(currentBuild.startTimeInMillis).format("yyyy-MM-dd HH:mm:ss")}
+                                - 持续时间: ${currentBuild.durationString}
+                                
+                                诊断信息:
+                                <pre>
+                                ${diagnosticInfo}
+                                </pre>
+                                
+                                查看完整构建日志: ${env.BUILD_URL}console
+                                
+                                请尽快检查失败原因并处理!
+                            """,
+                            to: '${DEFAULT_RECIPIENTS}',
+                            mimeType: 'text/html',
+                            attachLog: true
+                        )
+                    }
+                }
     }
 }
