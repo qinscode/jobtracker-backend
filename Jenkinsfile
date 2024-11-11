@@ -12,6 +12,7 @@ pipeline {
         DB_NAME = credentials('DB_USERNAME')
         DB_CREDS = credentials('DB_PASSWORD')
         DB_PORT = credentials('DB_PORT')
+        DB_DATABASE = credentials('DB_DATABASE')
         
         // API配置
         API_PORT = credentials('API_PORT')
@@ -47,6 +48,7 @@ pipeline {
                         .replace('#{GOOGLE_SECRET}', env.GOOGLE_SECRET)
                         .replace('#{GEMINI_API_KEY}', env.GEMINI_API_KEY)
                         .replace('#{GEMINI_API_ENDPOINT}', env.GEMINI_API_ENDPOINT)
+                        .replace('#{DB_DATABASE}', env.DB_DATABASE)
                     
                     writeFile file: 'appsettings.Production.json', text: configContent
                 }
@@ -56,8 +58,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    
-                    // 构建Docker镜像
+                    // 直接使用项目中的Dockerfile构建镜像
                     sh """
                         docker build -t ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} .
                         docker tag ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} ${DOCKER_IMAGE_NAME}:latest
@@ -77,7 +78,7 @@ pipeline {
                         fi
                     """
                     
-                    // 使用host网络模式启动新容器
+                    // 启动新容器，只设置必要的环境变量
                     sh """
                         docker run -d \
                             --name ${DOCKER_CONTAINER_NAME} \
