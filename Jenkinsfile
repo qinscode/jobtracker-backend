@@ -29,12 +29,11 @@ pipeline {
         GEMINI_API_KEY = credentials('GEMINI_API_KEY')
         GEMINI_API_ENDPOINT = credentials('GEMINI_API_ENDPOINT')
         
-        // Add build timeout setting
-        BUILD_TIMEOUT = '30'
+
     }
     
     options {
-        timeout(time: "${env.BUILD_TIMEOUT}" as Integer, unit: 'MINUTES')
+        timeout(time: 30, unit: 'MINUTES')
         disableConcurrentBuilds()
         buildDiscarder(logRotator(numToKeepStr: '10'))
     }
