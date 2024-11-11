@@ -17,7 +17,7 @@ pipeline {
         API_PORT = credentials('API_PORT')
         
         // JWT configuration
-        JWT_SECRET = credentials('jwt-secret')
+        JWT_SECRET = credentials('JWT_SECRET')
         JWT_ISSUER = credentials('JWT_ISSUER')
         JWT_AUDIENCE = credentials('JWT_AUDIENCE')
         
@@ -45,7 +45,7 @@ pipeline {
                     // Validate required environment variables and credentials
                     def requiredCredentials = [
                         'DB_HOST', 'DB_USERNAME', 'DB_CREDS', 'DB_DATABASE',
-                        'API_PORT', 'jwt-secret', 'JWT_ISSUER', 'JWT_AUDIENCE',
+                        'API_PORT', 'JWT_SECRET', 'JWT_ISSUER', 'JWT_AUDIENCE',
                         'Authentication_Google_ClientId', 'Authentication_Google_ClientSecret',
                         'GEMINI_API_KEY', 'GEMINI_API_ENDPOINT'
                     ]
