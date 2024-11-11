@@ -6,7 +6,7 @@ public class UserJobDto
     public int JobId { get; set; }
     public string? JobTitle { get; set; }
     public string? BusinessName { get; set; }
-    public string Status { get; set; }
+    public string Status { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }
@@ -14,7 +14,7 @@ public class UserJobDto
 public class CreateUserJobDto
 {
     public int JobId { get; set; }
-    public string Status { get; set; } // Change this to string
+    public string Status { get; set; } = string.Empty;
 }
 
 public class UpdateUserJobDto
@@ -25,7 +25,7 @@ public class UpdateUserJobDto
 
 public class UserJobsResponseDto
 {
-    public IEnumerable<UserJobDto> UserJobs { get; set; }
+    public IEnumerable<UserJobDto> UserJobs { get; set; } = new List<UserJobDto>();
     public int TotalCount { get; set; }
     public int PageNumber { get; set; }
     public int PageSize { get; set; }
@@ -33,13 +33,13 @@ public class UserJobsResponseDto
 
 public class UserJobStatusCountDto
 {
-    public string Status { get; set; }
+    public string Status { get; set; } = string.Empty;
     public int Count { get; set; }
 }
 
 public class UserJobStatusCountResponse
 {
-    public List<UserJobStatusCountDto> StatusCounts { get; set; }
+    public List<UserJobStatusCountDto> StatusCounts { get; set; } = new List<UserJobStatusCountDto>();
     public int TotalJobsCount { get; set; }
     public int NewJobsCount { get; set; }
 }

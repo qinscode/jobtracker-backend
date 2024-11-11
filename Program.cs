@@ -45,15 +45,19 @@ builder.Services.AddCors(options =>
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        var jwtKey = builder.Configuration["Jwt:Key"] ??
+                     throw new InvalidOperationException("JWT key is not configured");
+        var key = Encoding.UTF8.GetBytes(jwtKey);
+
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+            ValidIssuer = builder.Configuration["Jwt:Issuer"] ?? "DefaultIssuer",
+            ValidAudience = builder.Configuration["Jwt:Audience"] ?? "DefaultAudience",
+            IssuerSigningKey = new SymmetricSecurityKey(key)
         };
     })
     .AddGoogle(googleOptions =>

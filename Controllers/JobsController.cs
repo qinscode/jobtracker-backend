@@ -140,15 +140,15 @@ public class JobsController : ControllerBase
 
             var job = new Job
             {
-                JobTitle = createJobDto.JobTitle,
-                BusinessName = createJobDto.BusinessName,
-                WorkType = createJobDto.WorkType,
-                JobType = createJobDto.JobType,
-                PayRange = createJobDto.PayRange,
-                Suburb = createJobDto.Suburb,
-                Area = createJobDto.Area,
-                Url = createJobDto.Url,
-                JobDescription = createJobDto.JobDescription,
+                JobTitle = createJobDto.JobTitle ?? string.Empty,
+                BusinessName = createJobDto.BusinessName ?? string.Empty,
+                WorkType = createJobDto.WorkType ?? string.Empty,
+                JobType = createJobDto.JobType ?? string.Empty,
+                PayRange = createJobDto.PayRange ?? string.Empty,
+                Suburb = createJobDto.Suburb ?? string.Empty,
+                Area = createJobDto.Area ?? string.Empty,
+                Url = createJobDto.Url ?? string.Empty,
+                JobDescription = createJobDto.JobDescription ?? string.Empty,
                 PostedDate = createJobDto.PostedDate ?? perthTime,
                 CreatedAt = perthTime,
                 UpdatedAt = perthTime,
@@ -163,11 +163,8 @@ public class JobsController : ControllerBase
             return CreatedAtAction(
                 nameof(GetJob),
                 new { id = createdJob.Id },
-                new
-                {
-                    message = "Job created successfully",
-                    job = createdJob
-                });
+                new { message = "Job created successfully", job = createdJob }
+            );
         }
         catch (Exception ex)
         {

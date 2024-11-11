@@ -148,9 +148,9 @@ public class UserJobsController : ControllerBase
 
     [HttpGet("status/{status}")]
     public async Task<ActionResult<JobsResponseDto>> GetUserJobsByStatus(
-        UserJobStatus status, 
+        UserJobStatus status,
         [FromQuery] string? searchTerm,
-        [FromQuery] int pageNumber = 1, 
+        [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10)
     {
         var userGuid = GetUserIdFromToken();
@@ -161,7 +161,8 @@ public class UserJobsController : ControllerBase
         // 如果提供了搜索词，使用搜索方法
         if (!string.IsNullOrWhiteSpace(searchTerm))
         {
-            var jobs = await _userJobRepository.SearchJobsByTitleAsync(userGuid, searchTerm, status, pageNumber, pageSize);
+            var jobs = await _userJobRepository.SearchJobsByTitleAsync(userGuid, searchTerm, status, pageNumber,
+                pageSize);
             var totalCount = await _userJobRepository.CountJobsByTitleAsync(userGuid, searchTerm, status);
 
             var response = new JobsResponseDto
@@ -188,9 +189,10 @@ public class UserJobsController : ControllerBase
 
             return Ok(response);
         }
-        
+
         // 如果没有搜索词，使用原有的方法
-        var regularJobs = await _userJobRepository.GetJobsByUserIdAndStatusAsync(userGuid, status, pageNumber, pageSize);
+        var regularJobs =
+            await _userJobRepository.GetJobsByUserIdAndStatusAsync(userGuid, status, pageNumber, pageSize);
         var regularTotalCount = await _userJobRepository.GetJobsCountByUserIdAndStatusAsync(userGuid, status);
 
         var regularResponse = new JobsResponseDto
@@ -334,12 +336,14 @@ public class UserJobsController : ControllerBase
 
     private UserJobDto CreateUserJobDto(UserJob userJob)
     {
+        if (userJob == null) throw new ArgumentNullException(nameof(userJob));
+
         return new UserJobDto
         {
             Id = userJob.Id,
             JobId = userJob.JobId,
-            JobTitle = userJob.Job?.JobTitle,
-            BusinessName = userJob.Job?.BusinessName,
+            JobTitle = userJob.Job?.JobTitle ?? string.Empty,
+            BusinessName = userJob.Job?.BusinessName ?? string.Empty,
             Status = userJob.Status.ToString(),
             CreatedAt = userJob.CreatedAt,
             UpdatedAt = userJob.UpdatedAt

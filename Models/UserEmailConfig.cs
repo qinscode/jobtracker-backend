@@ -10,12 +10,11 @@ public class UserEmailConfig
 
     [ForeignKey("UserId")] public User? User { get; set; }
 
-    public string EmailAddress { get; set; }
+    [Required] public string EmailAddress { get; set; } = string.Empty;
 
-    // 我们需要加密存储密码
-    public string EncryptedPassword { get; set; }
+    [Required] public string EncryptedPassword { get; set; } = string.Empty;
 
-    public string Provider { get; set; } // e.g., "Gmail", "Outlook"
+    [Required] public string Provider { get; set; } = "Gmail";
 
     public DateTime LastSyncTime { get; set; }
 

@@ -10,7 +10,6 @@ namespace JobTracker.Repositories
         Task<User> CreateUserAsync(User user);
         Task UpdateUserAsync(Guid id, User user);
         Task DeleteUserAsync(Guid id);
-        Task<User> GetUserByEmailAsync(string? email);
-        
+        Task<User?> GetUserByEmailAsync(string? email);
     }
 }

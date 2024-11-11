@@ -5,22 +5,17 @@ namespace JobTracker.Models;
 
 public class AnalyzedEmail
 {
-    [Key]
-    public Guid Id { get; set; }
-    
+    [Key] public Guid Id { get; set; }
+
     public Guid UserEmailConfigId { get; set; }
-    [ForeignKey("UserEmailConfigId")]
-    public UserEmailConfig? UserEmailConfig { get; set; }
-    
-    [Required]
-    public string MessageId { get; set; }  // 邮件的唯一标识符
-    
-    public string Subject { get; set; }
+    [ForeignKey("UserEmailConfigId")] public UserEmailConfig? UserEmailConfig { get; set; }
+
+    [Required] public string MessageId { get; set; } = string.Empty;
+
+    public string Subject { get; set; } = string.Empty;
     public DateTime ReceivedDate { get; set; }
     public DateTime AnalyzedAt { get; set; } = DateTime.UtcNow;
-    
-    [Required]
-    public int MatchedJobId { get; set; }  // 如果匹配到了工作，记录下来
-    [ForeignKey("MatchedJobId")]
-    public Job? MatchedJob { get; set; }
-} 
+
+    [Required] public int MatchedJobId { get; set; }
+    [ForeignKey("MatchedJobId")] public Job? MatchedJob { get; set; }
+}

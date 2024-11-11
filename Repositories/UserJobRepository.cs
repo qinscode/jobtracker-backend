@@ -98,18 +98,21 @@ public class UserJobRepository : IUserJobRepository
     public async Task<IEnumerable<Job>> GetJobsByUserIdAndStatusAsync(Guid userId, UserJobStatus status, int pageNumber,
         int pageSize)
     {
-        return await _context.UserJobs
+        var jobs = await _context.UserJobs
             .Where(uj => uj.UserId == userId && uj.Status == status)
             .Select(uj => uj.Job)
+            .Where(j => j != null)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
+
+        return jobs.Where(j => j != null).Cast<Job>();
     }
 
     public async Task<int> GetJobsCountByUserIdAndStatusAsync(Guid userId, UserJobStatus status)
     {
         return await _context.UserJobs
-            .CountAsync(uj => uj.UserId == userId && uj.Status == status );
+            .CountAsync(uj => uj.UserId == userId && uj.Status == status);
     }
 
     public async Task<Dictionary<UserJobStatus, int>> GetUserJobStatusCountsAsync(Guid userId)

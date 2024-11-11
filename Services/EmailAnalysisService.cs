@@ -146,8 +146,8 @@ public class EmailAnalysisService : IEmailAnalysisService
                         var perthTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, PerthTimeZone);
                         var newJob = new Job
                         {
-                            JobTitle = jobInfo.JobTitle,
-                            BusinessName = jobInfo.CompanyName,
+                            JobTitle = jobInfo.JobTitle ?? string.Empty,
+                            BusinessName = jobInfo.CompanyName ?? string.Empty,
                             CreatedAt = perthTime,
                             UpdatedAt = perthTime,
                             IsActive = true,
@@ -196,8 +196,8 @@ public class EmailAnalysisService : IEmailAnalysisService
                             analysisResult.Job = new JobBasicInfo
                             {
                                 Id = newJob.Id,
-                                JobTitle = newJob.JobTitle,
-                                BusinessName = newJob.BusinessName
+                                JobTitle = newJob.JobTitle ?? string.Empty,
+                                BusinessName = newJob.BusinessName ?? string.Empty
                             };
                             analysisResult.IsRecognized = true;
                         }
@@ -214,8 +214,8 @@ public class EmailAnalysisService : IEmailAnalysisService
                         analysisResult.Job = new JobBasicInfo
                         {
                             Id = matchedJob.Id,
-                            JobTitle = matchedJob.JobTitle,
-                            BusinessName = matchedJob.BusinessName
+                            JobTitle = matchedJob.JobTitle ?? string.Empty,
+                            BusinessName = matchedJob.BusinessName ?? string.Empty
                         };
                         analysisResult.IsRecognized = true;
                     }
