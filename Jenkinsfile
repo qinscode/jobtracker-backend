@@ -13,7 +13,7 @@ pipeline {
         // JWT 配置
         JWT_SECRET = credentials('jwt-secret')
         JWT_ISSUER = credentials('JWT_ISSUER')
-        JWT_AUDIENCE = credentials('jwt-audience')
+        JWT_AUDIENCE = credentials('JWT_AUDIENCE')
         
         // Google OAuth 配置
         GOOGLE_CLIENT_ID = credentials('Authentication_Google_ClientId')
