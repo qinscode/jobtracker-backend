@@ -39,7 +39,6 @@ pipeline {
                         .replace('#{DB_HOST}', env.DB_HOST)
                         .replace('#{DB_USERNAME}', env.DB_USERNAME)
                         .replace('#{DB_PASSWORD}', env.DB_CREDS)
-                        .replace('#{DB_PORT}', env.DB_PORT)
                         .replace('#{JWT_SECRET}', env.JWT_SECRET)
                         .replace('#{JWT_ISSUER}', env.JWT_ISSUER)
                         .replace('#{JWT_AUDIENCE}', env.JWT_AUDIENCE)
