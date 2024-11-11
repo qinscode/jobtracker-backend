@@ -22,8 +22,8 @@ pipeline {
         JWT_AUDIENCE = credentials('JWT_AUDIENCE')
         
         // Google OAuth configuration
-        GOOGLE_CLIENT_ID = credentials('Authentication_Google_ClientId')
-        GOOGLE_SECRET = credentials('Authentication_Google_ClientSecret')
+        GOOGLE_CLIENT_ID = credentials('GOOGLE_CLIENT_ID')
+        GOOGLE_SECRET = credentials('GOOGLE_SECRET')
         
         // Gemini API configuration
         GEMINI_API_KEY = credentials('GEMINI_API_KEY')
@@ -46,7 +46,7 @@ pipeline {
                     def requiredCredentials = [
                         'DB_HOST', 'DB_USERNAME', 'DB_CREDS', 'DB_DATABASE',
                         'API_PORT', 'JWT_SECRET', 'JWT_ISSUER', 'JWT_AUDIENCE',
-                        'Authentication_Google_ClientId', 'Authentication_Google_ClientSecret',
+                        'GOOGLE_CLIENT_ID', 'GOOGLE_SECRET',
                         'GEMINI_API_KEY', 'GEMINI_API_ENDPOINT'
                     ]
                     
