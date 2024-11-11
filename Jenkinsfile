@@ -56,27 +56,6 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    writeFile file: 'Dockerfile', text: '''
-                        FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
-                        WORKDIR /app
-                        EXPOSE ${API_PORT}
-
-                        FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-                        WORKDIR /src
-                        COPY ["JobTracker.API/JobTracker.API.csproj", "JobTracker.API/"]
-                        RUN dotnet restore "JobTracker.API/JobTracker.API.csproj"
-                        COPY . .
-                        RUN dotnet build "JobTracker.API/JobTracker.API.csproj" -c Release -o /app/build
-
-                        FROM build AS publish
-                        RUN dotnet publish "JobTracker.API/JobTracker.API.csproj" -c Release -o /app/publish
-
-                        FROM base AS final
-                        WORKDIR /app
-                        COPY --from=publish /app/publish .
-                        COPY appsettings.Production.json ./appsettings.json
-                        ENTRYPOINT ["dotnet", "JobTracker.API.dll"]
-                    '''
                     
                     // 构建Docker镜像
                     sh """
@@ -143,7 +122,6 @@ pipeline {
             // 清理敏感文件和构建产物
             sh '''
                 rm -f appsettings.Production.json
-                rm -f Dockerfile
             '''
             cleanWs()
         }
