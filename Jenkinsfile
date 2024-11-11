@@ -11,7 +11,6 @@ pipeline {
         DB_HOST = credentials('DB_HOST')
         DB_USERNAME = credentials('DB_USERNAME')
         DB_CREDS = credentials('DB_PASSWORD')
-        DB_PORT = credentials('DB_PORT')
         DB_DATABASE = credentials('DB_DATABASE')
         
         // API配置
