@@ -37,7 +37,6 @@ pipeline {
         timeout(time: "${env.BUILD_TIMEOUT}" as Integer, unit: 'MINUTES')
         disableConcurrentBuilds()
         buildDiscarder(logRotator(numToKeepStr: '10'))
-        ansiColor('xterm')
     }
     
     stages {
