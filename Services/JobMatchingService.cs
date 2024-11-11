@@ -1,6 +1,4 @@
 using FuzzySharp;
-using FuzzySharp.SimilarityRatio;
-using FuzzySharp.PreProcess;
 using JobTracker.Models;
 using JobTracker.Repositories;
 using JobTracker.Services.Interfaces;
@@ -22,42 +20,49 @@ public class JobMatchingService : IJobMatchingService
         _logger = logger;
     }
 
-    public async Task<(bool IsMatch, Job? MatchedJob, double Similarity)> FindMatchingJobAsync(string jobTitle, string companyName)
+    public async Task<(bool IsMatch, Job? MatchedJob, double Similarity)> FindMatchingJobAsync(string jobTitle,
+        string companyName)
     {
         var matchingJobs = await _jobRepository.SearchJobsByTitleAndCompanyAsync(jobTitle, companyName, 1, 10);
-        
+
         Console.WriteLine("\n========== Job Matching Analysis ==========");
         Console.WriteLine($"Searching for: {companyName} - {jobTitle}");
         Console.WriteLine($"Found {matchingJobs.Count()} potential matches");
-        
+
         var bestMatch = (Job?)null;
         var bestScore = 0.0;
-        
+
         foreach (var job in matchingJobs)
         {
             // 计算公司名称相似度
             var companyScore = CalculateCompanyScore(job.BusinessName, companyName);
-            
+
             // 计算职位名称相似度
             var titleScore = CalculateTitleScore(job.JobTitle, jobTitle);
-            
+
             // 综合得分
             var combinedScore = (companyScore + titleScore) / 2.0;
-                
+
             Console.WriteLine($"\nComparing with database job (ID: {job.Id}):");
             Console.WriteLine($"Database: {job.BusinessName} - {job.JobTitle}");
             Console.WriteLine($"Email: {companyName} - {jobTitle}");
             Console.WriteLine($"Company Score Details:");
             Console.WriteLine($"- Ratio: {Fuzz.Ratio(job.BusinessName?.ToLower() ?? "", companyName.ToLower())}");
-            Console.WriteLine($"- Partial Ratio: {Fuzz.PartialRatio(job.BusinessName?.ToLower() ?? "", companyName.ToLower())}");
-            Console.WriteLine($"- Token Sort Ratio: {Fuzz.TokenSortRatio(job.BusinessName?.ToLower() ?? "", companyName.ToLower())}");
-            Console.WriteLine($"- Token Set Ratio: {Fuzz.TokenSetRatio(job.BusinessName?.ToLower() ?? "", companyName.ToLower())}");
+            Console.WriteLine(
+                $"- Partial Ratio: {Fuzz.PartialRatio(job.BusinessName?.ToLower() ?? "", companyName.ToLower())}");
+            Console.WriteLine(
+                $"- Token Sort Ratio: {Fuzz.TokenSortRatio(job.BusinessName?.ToLower() ?? "", companyName.ToLower())}");
+            Console.WriteLine(
+                $"- Token Set Ratio: {Fuzz.TokenSetRatio(job.BusinessName?.ToLower() ?? "", companyName.ToLower())}");
             Console.WriteLine($"Final Company Score: {companyScore:F1}");
             Console.WriteLine($"Title Score Details:");
             Console.WriteLine($"- Ratio: {Fuzz.Ratio(job.JobTitle?.ToLower() ?? "", jobTitle.ToLower())}");
-            Console.WriteLine($"- Partial Ratio: {Fuzz.PartialRatio(job.JobTitle?.ToLower() ?? "", jobTitle.ToLower())}");
-            Console.WriteLine($"- Token Sort Ratio: {Fuzz.TokenSortRatio(job.JobTitle?.ToLower() ?? "", jobTitle.ToLower())}");
-            Console.WriteLine($"- Token Set Ratio: {Fuzz.TokenSetRatio(job.JobTitle?.ToLower() ?? "", jobTitle.ToLower())}");
+            Console.WriteLine(
+                $"- Partial Ratio: {Fuzz.PartialRatio(job.JobTitle?.ToLower() ?? "", jobTitle.ToLower())}");
+            Console.WriteLine(
+                $"- Token Sort Ratio: {Fuzz.TokenSortRatio(job.JobTitle?.ToLower() ?? "", jobTitle.ToLower())}");
+            Console.WriteLine(
+                $"- Token Set Ratio: {Fuzz.TokenSetRatio(job.JobTitle?.ToLower() ?? "", jobTitle.ToLower())}");
             Console.WriteLine($"Final Title Score: {titleScore:F1}");
             Console.WriteLine($"Combined Score: {combinedScore:F1}");
 
@@ -76,6 +81,7 @@ public class JobMatchingService : IJobMatchingService
             Console.WriteLine($"Best Match: {bestMatch.BusinessName} - {bestMatch.JobTitle}");
             Console.WriteLine($"Overall Score: {bestScore:F1}");
         }
+
         Console.WriteLine("=========================================\n");
 
         return (isMatch, bestMatch, bestScore / 100.0); // 转换为 0-1 范围
@@ -157,7 +163,7 @@ public class JobMatchingService : IJobMatchingService
     public double CalculateSimilarity(string s1, string s2)
     {
         if (string.IsNullOrEmpty(s1) || string.IsNullOrEmpty(s2)) return 0;
-        
+
         // 使用 FuzzySharp 的 TokenSetRatio，它对词序不敏感
         return Fuzz.TokenSetRatio(s1.ToLower(), s2.ToLower()) / 100.0;
     }
@@ -170,30 +176,31 @@ public class JobMatchingService : IJobMatchingService
         if (!string.IsNullOrWhiteSpace(searchParams.SearchTerm))
         {
             var searchTerm = searchParams.SearchTerm.ToLower();
-            // 使用 OR 条件同时搜索职位名称和公司名称
-            query = query.Where(j => 
-                EF.Functions.ILike(j.JobTitle, $"%{searchTerm}%") || 
-                EF.Functions.ILike(j.BusinessName, $"%{searchTerm}%"));
+            query = query.Where(j =>
+                (j.JobTitle != null && EF.Functions.ILike(j.JobTitle, $"%{searchTerm}%")) ||
+                (j.BusinessName != null && EF.Functions.ILike(j.BusinessName, $"%{searchTerm}%")));
         }
 
         // 如果同时提供了具体的职位名称和公司名称，使用 AND 条件
         if (!string.IsNullOrWhiteSpace(searchParams.JobTitle) && !string.IsNullOrWhiteSpace(searchParams.CompanyName))
         {
-            query = query.Where(j => 
-                EF.Functions.ILike(j.JobTitle, $"%{searchParams.JobTitle}%") && 
-                EF.Functions.ILike(j.BusinessName, $"%{searchParams.CompanyName}%"));
+            query = query.Where(j =>
+                (j.JobTitle != null && EF.Functions.ILike(j.JobTitle, $"%{searchParams.JobTitle}%")) &&
+                (j.BusinessName != null && EF.Functions.ILike(j.BusinessName, $"%{searchParams.CompanyName}%")));
         }
         // 否则分别应用职位名称和公司名称的搜索条件
         else
         {
             if (!string.IsNullOrWhiteSpace(searchParams.JobTitle))
             {
-                query = query.Where(j => EF.Functions.ILike(j.JobTitle, $"%{searchParams.JobTitle}%"));
+                query = query.Where(j => j.JobTitle != null &&
+                                         EF.Functions.ILike(j.JobTitle, $"%{searchParams.JobTitle}%"));
             }
 
             if (!string.IsNullOrWhiteSpace(searchParams.CompanyName))
             {
-                query = query.Where(j => EF.Functions.ILike(j.BusinessName, $"%{searchParams.CompanyName}%"));
+                query = query.Where(j => j.BusinessName != null &&
+                                         EF.Functions.ILike(j.BusinessName, $"%{searchParams.CompanyName}%"));
             }
         }
 
@@ -210,24 +217,24 @@ public class JobMatchingService : IJobMatchingService
         {
             query = searchParams.SortBy.ToLower() switch
             {
-                "title" => searchParams.SortDescending 
-                    ? query.OrderByDescending(j => j.JobTitle) 
+                "title" => searchParams.SortDescending
+                    ? query.OrderByDescending(j => j.JobTitle)
                     : query.OrderBy(j => j.JobTitle),
-                "company" => searchParams.SortDescending 
-                    ? query.OrderByDescending(j => j.BusinessName) 
+                "company" => searchParams.SortDescending
+                    ? query.OrderByDescending(j => j.BusinessName)
                     : query.OrderBy(j => j.BusinessName),
-                "date" => searchParams.SortDescending 
-                    ? query.OrderByDescending(j => j.CreatedAt) 
+                "date" => searchParams.SortDescending
+                    ? query.OrderByDescending(j => j.CreatedAt)
                     : query.OrderBy(j => j.CreatedAt),
-                _ => searchParams.SortDescending 
-                    ? query.OrderByDescending(j => j.CreatedAt) 
+                _ => searchParams.SortDescending
+                    ? query.OrderByDescending(j => j.CreatedAt)
                     : query.OrderBy(j => j.CreatedAt)
             };
         }
         else
         {
-            query = searchParams.SortDescending 
-                ? query.OrderByDescending(j => j.CreatedAt) 
+            query = searchParams.SortDescending
+                ? query.OrderByDescending(j => j.CreatedAt)
                 : query.OrderBy(j => j.CreatedAt);
         }
 
@@ -256,4 +263,4 @@ public class JobMatchingService : IJobMatchingService
             PageSize = searchParams.PageSize
         };
     }
-} 
+}

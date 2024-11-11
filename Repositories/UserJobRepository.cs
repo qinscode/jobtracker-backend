@@ -154,19 +154,19 @@ public class UserJobRepository : IUserJobRepository
             query = query.Where(uj => uj.Status == status.Value);
         }
 
-        // 添加搜索条件
         if (!string.IsNullOrWhiteSpace(searchTerm))
         {
             searchTerm = searchTerm.ToLower();
-            query = query.Where(uj =>
+            query = query.Where(uj => uj.Job != null && (
                 (uj.Job.JobTitle != null && EF.Functions.ILike(uj.Job.JobTitle, $"%{searchTerm}%")) ||
                 (uj.Job.BusinessName != null && EF.Functions.ILike(uj.Job.BusinessName, $"%{searchTerm}%")) ||
-                (uj.Job.JobDescription != null && EF.Functions.ILike(uj.Job.JobDescription, $"%{searchTerm}%")));
+                (uj.Job.JobDescription != null && EF.Functions.ILike(uj.Job.JobDescription, $"%{searchTerm}%"))
+            ));
         }
 
         var jobs = await query
             .Select(uj => uj.Job)
-            .OrderByDescending(j => j.CreatedAt)
+            .OrderByDescending(j => j != null ? j.CreatedAt : DateTime.MinValue)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
@@ -190,9 +190,11 @@ public class UserJobRepository : IUserJobRepository
         {
             searchTerm = searchTerm.ToLower();
             query = query.Where(uj =>
-                (uj.Job.JobTitle != null && EF.Functions.ILike(uj.Job.JobTitle, $"%{searchTerm}%")) ||
-                (uj.Job.BusinessName != null && EF.Functions.ILike(uj.Job.BusinessName, $"%{searchTerm}%")) ||
-                (uj.Job.JobDescription != null && EF.Functions.ILike(uj.Job.JobDescription, $"%{searchTerm}%")));
+                (uj.Job != null && uj.Job.JobTitle != null && EF.Functions.ILike(uj.Job.JobTitle, $"%{searchTerm}%")) ||
+                (uj.Job != null && uj.Job.BusinessName != null &&
+                 EF.Functions.ILike(uj.Job.BusinessName, $"%{searchTerm}%")) ||
+                (uj.Job != null && uj.Job.JobDescription != null &&
+                 EF.Functions.ILike(uj.Job.JobDescription, $"%{searchTerm}%")));
         }
 
         return await query.CountAsync();

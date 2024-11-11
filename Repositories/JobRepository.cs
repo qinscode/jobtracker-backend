@@ -112,7 +112,8 @@ public class JobRepository : IJobRepository
             .CountAsync();
     }
 
-    public async Task<IEnumerable<Job>> SearchJobsByTitleAndCompanyAsync(string jobTitle, string companyName, int pageNumber, int pageSize)
+    public async Task<IEnumerable<Job>> SearchJobsByTitleAndCompanyAsync(string jobTitle, string companyName,
+        int pageNumber, int pageSize)
     {
         // 清理搜索词
         jobTitle = jobTitle.Trim().ToLower();
@@ -135,32 +136,34 @@ public class JobRepository : IJobRepository
                 .Replace($" {term}", "")
                 .Replace($"{term} ", "");
         }
+
         cleanCompanyName = cleanCompanyName.Trim();
 
         // 分词并移除短词
         var companyKeywords = cleanCompanyName
             .Split(new[] { ' ', '-', '/', '&' }, StringSplitOptions.RemoveEmptyEntries)
-            .Where(k => k.Length > 2)  // 忽略太短的词
+            .Where(k => k.Length > 2) // 忽略太短的词
             .ToList();
 
         Console.WriteLine($"Clean company name: {cleanCompanyName}");
         Console.WriteLine($"Company keywords: {string.Join(", ", companyKeywords)}");
         Console.WriteLine($"Job title: {jobTitle}");
 
-        // 构建查询 - 先精确匹配职位，移除 IsActive 限制
+        // 构建查询 - 先精确匹配职位
         var query = _context.Jobs
-            .Where(j => EF.Functions.ILike(j.JobTitle, $"%{jobTitle}%"))
+            .Where(j => j.JobTitle != null && EF.Functions.ILike(j.JobTitle, $"%{jobTitle}%"))
             .AsQueryable();
 
         // 然后在职位匹配的结果中搜索公司
         if (companyKeywords.Any())
         {
             var companyPredicate = PredicateBuilder.New<Job>();
-            foreach (var keyword in companyKeywords)
+            foreach (var keyword in companyKeywords.Where(k => !string.IsNullOrEmpty(k)))
             {
-                companyPredicate = companyPredicate.Or(j => 
-                    EF.Functions.ILike(j.BusinessName, $"%{keyword}%"));
+                companyPredicate = companyPredicate.Or(j =>
+                    j.BusinessName != null && EF.Functions.ILike(j.BusinessName, $"%{keyword}%"));
             }
+
             query = query.Where(companyPredicate);
         }
 
@@ -171,7 +174,7 @@ public class JobRepository : IJobRepository
         // 获取结果并按创建时间排序
         var results = await query
             .OrderByDescending(j => j.CreatedAt)
-            .Take(50)  // 增加返回数量以提高匹配概率
+            .Take(50) // 增加返回数量以提高匹配概率
             .ToListAsync();
 
         // 输出搜索结果

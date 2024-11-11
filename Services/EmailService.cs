@@ -235,15 +235,18 @@ public class EmailService : IEmailService
         var textBody = message.TextBody ?? message.HtmlBody;
         if (!string.IsNullOrEmpty(textBody))
         {
-            messages.Add(new EmailMessage
+            await Task.Run(() =>
             {
-                MessageId = message.MessageId,
-                Subject = message.Subject,
-                Body = textBody,
-                ReceivedDate = TimeZoneInfo.ConvertTimeFromUtc(message.Date.UtcDateTime, PerthTimeZone)
-            });
+                messages.Add(new EmailMessage
+                {
+                    MessageId = message.MessageId,
+                    Subject = message.Subject,
+                    Body = textBody,
+                    ReceivedDate = TimeZoneInfo.ConvertTimeFromUtc(message.Date.UtcDateTime, PerthTimeZone)
+                });
 
-            _logger.LogDebug("Processed email: {Subject}", message.Subject);
+                _logger.LogDebug("Processed email: {Subject}", message.Subject);
+            });
         }
     }
 }
