@@ -1,134 +1,223 @@
 using JobTracker.Models;
 using JobTracker.Repositories;
+using JobTracker.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
 namespace JobTracker.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/jobs")]
 public class JobsController : ControllerBase
 {
+    private static readonly TimeZoneInfo PerthTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Australia/Perth");
+    private readonly IJobMatchingService _jobMatchingService;
     private readonly IJobRepository _jobRepository;
+    private readonly ILogger<JobsController> _logger;
 
-    public JobsController(IJobRepository jobRepository)
+    public JobsController(
+        IJobRepository jobRepository,
+        IJobMatchingService jobMatchingService,
+        ILogger<JobsController> logger)
     {
         _jobRepository = jobRepository;
+        _jobMatchingService = jobMatchingService;
+        _logger = logger;
     }
 
     [HttpGet]
-    public async Task<ActionResult<JobsResponseDto>> GetJobs([FromQuery] int pageNumber = 1,
+    public async Task<ActionResult<JobsResponseDto>> GetJobs(
+        [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10)
     {
         var jobs = await _jobRepository.GetJobsAsync(pageNumber, pageSize);
         var totalCount = await _jobRepository.GetJobsCountAsync();
 
-        var response = new JobsResponseDto
+        var jobDtos = jobs.Select(job => new JobDto
         {
-            Jobs = jobs.Select(j => new JobDto
-            {
-                Id = j.Id,
-                JobTitle = j.JobTitle ?? "",
-                BusinessName = j.BusinessName ?? "",
-                WorkType = j.WorkType ?? "",
-                JobType = j.JobType ?? "",
-                PayRange = j.PayRange ?? "",
-                Suburb = j.Suburb ?? "",
-                Area = j.Area ?? "",
-                Url = j.Url ?? "",
-                Status = "New",
-                PostedDate = j.PostedDate?.ToString("yyyy-MM-dd") ?? "",
-                JobDescription = j.JobDescription ?? ""
-            }),
+            Id = job.Id,
+            JobTitle = job.JobTitle ?? "",
+            BusinessName = job.BusinessName ?? "",
+            WorkType = job.WorkType ?? "",
+            JobType = job.JobType ?? "",
+            PayRange = job.PayRange ?? "",
+            Suburb = job.Suburb ?? "",
+            Area = job.Area ?? "",
+            Url = job.Url ?? "",
+            Status = "New",
+            PostedDate = job.PostedDate?.ToString("yyyy-MM-dd") ?? "",
+            JobDescription = job.JobDescription ?? ""
+        });
+
+        return Ok(new JobsResponseDto
+        {
+            Jobs = jobDtos,
             TotalCount = totalCount,
             PageNumber = pageNumber,
             PageSize = pageSize
-        };
-
-        return Ok(response);
+        });
     }
 
-    [HttpGet("active")]
-    public async Task<ActionResult<JobsResponseDto>> GetActiveJobs([FromQuery] int pageNumber = 1,
-        [FromQuery] int pageSize = 10)
+    [HttpGet("search")]
+    public async Task<ActionResult<JobSearchResult>> SearchJobs([FromQuery] JobSearchParams searchParams)
     {
-        var jobs = await _jobRepository.GetActiveJobsAsync(pageNumber, pageSize);
-        var totalCount = await _jobRepository.GetActiveJobsCountAsync();
-
-        var response = new JobsResponseDto
+        try
         {
-            Jobs = jobs.Select(j => new JobDto
-            {
-                Id = j.Id,
-                JobTitle = j.JobTitle ?? "",
-                BusinessName = j.BusinessName ?? "",
-                WorkType = j.WorkType ?? "",
-                JobType = j.JobType ?? "",
-                PayRange = j.PayRange ?? "",
-                Suburb = j.Suburb ?? "",
-                Area = j.Area ?? "",
-                Url = j.Url ?? "",
-                Status = "New",
-                PostedDate = j.PostedDate?.ToString("yyyy-MM-dd") ?? "",
-                JobDescription = j.JobDescription ?? ""
-            }),
-            TotalCount = totalCount,
-            PageNumber = pageNumber,
-            PageSize = pageSize
-        };
-
-        return Ok(response);
+            _logger.LogInformation("Searching jobs with params: {@SearchParams}", searchParams);
+            var result = await _jobMatchingService.SearchJobsAsync(searchParams);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error searching jobs");
+            return StatusCode(500, new { message = "An error occurred while searching jobs" });
+        }
     }
 
-    [HttpGet("{id}")]
-    public async Task<ActionResult<JobDto>> GetJob(int id) // Changed from Guid to int
+    [HttpGet("{id:int}")]
+    public async Task<ActionResult<Job>> GetJob(int id)
     {
         var job = await _jobRepository.GetJobByIdAsync(id);
-        if (job == null) return NotFound(new { message = $"Job with id {id} not found" });
-        var jobDto = new JobDto
-        {
-            Id = job.Id, // Changed from string to int
-            JobTitle = job.JobTitle,
-            BusinessName = job.BusinessName,
-            WorkType = job.WorkType,
-            JobType = job.JobType,
-            PayRange = job.PayRange,
-            Suburb = job.Suburb,
-            Area = job.Area,
-            Url = job.Url,
-            Status = "New", // 默认设置为 "New"，您可能需要根据实际情况调整
-            PostedDate = job.PostedDate?.ToString("yyyy-MM-dd"),
-            JobDescription = job.JobDescription
-        };
-        return Ok(jobDto);
+        if (job == null) return NotFound(new { message = $"Job with ID {id} not found" });
+
+        return Ok(job);
     }
 
     [HttpPost]
     public async Task<ActionResult<Job>> CreateJob(Job job)
     {
-        var createdJob = await _jobRepository.CreateJobAsync(job);
-        return CreatedAtAction(nameof(GetJob), new { id = createdJob.Id }, createdJob);
+        try
+        {
+            var createdJob = await _jobRepository.CreateJobAsync(job);
+            return CreatedAtAction(nameof(GetJob), new { id = createdJob.Id }, createdJob);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating job");
+            return StatusCode(500, new { message = "An error occurred while creating the job" });
+        }
     }
 
-    [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateJob(int id, Job job) // Changed from Guid to int
+    [HttpPut("{id:int}")]
+    public async Task<ActionResult> UpdateJob(int id, Job job)
     {
-        if (id != job.Id) return BadRequest(new { message = "Id in URL does not match Id in request body" });
+        if (id != job.Id) return BadRequest(new { message = "ID mismatch" });
 
-        var existingJob = await _jobRepository.GetJobByIdAsync(id);
-        if (existingJob == null) return NotFound(new { message = $"Job with id {id} not found" });
-
-        await _jobRepository.UpdateJobAsync(job);
-        return NoContent();
+        try
+        {
+            await _jobRepository.UpdateJobAsync(job);
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating job");
+            return StatusCode(500, new { message = "An error occurred while updating the job" });
+        }
     }
 
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteJob(int id) // Changed from Guid to int
+    [HttpDelete("{id:int}")]
+    public async Task<ActionResult> DeleteJob(int id)
     {
-        var existingJob = await _jobRepository.GetJobByIdAsync(id);
-        if (existingJob == null) return NotFound(new { message = $"Job with id {id} not found" });
+        try
+        {
+            await _jobRepository.DeleteJobAsync(id);
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting job");
+            return StatusCode(500, new { message = "An error occurred while deleting the job" });
+        }
+    }
 
-        await _jobRepository.DeleteJobAsync(id);
-        return NoContent();
+    [HttpPost("create")]
+    public async Task<ActionResult<Job>> CreateJobManually([FromBody] CreateJobDto createJobDto)
+    {
+        try
+        {
+            _logger.LogInformation("Creating new job: {@JobDto}", createJobDto);
+
+            var perthTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, PerthTimeZone);
+
+            var job = new Job
+            {
+                JobTitle = createJobDto.JobTitle,
+                BusinessName = createJobDto.BusinessName,
+                WorkType = createJobDto.WorkType,
+                JobType = createJobDto.JobType,
+                PayRange = createJobDto.PayRange,
+                Suburb = createJobDto.Suburb,
+                Area = createJobDto.Area,
+                Url = createJobDto.Url,
+                JobDescription = createJobDto.JobDescription,
+                PostedDate = createJobDto.PostedDate ?? perthTime,
+                CreatedAt = perthTime,
+                UpdatedAt = perthTime,
+                IsActive = true,
+                IsNew = true
+            };
+
+            var createdJob = await _jobRepository.CreateJobAsync(job);
+
+            _logger.LogInformation("Successfully created job with ID: {JobId}", createdJob.Id);
+
+            return CreatedAtAction(
+                nameof(GetJob),
+                new { id = createdJob.Id },
+                new
+                {
+                    message = "Job created successfully",
+                    job = createdJob
+                });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating job manually");
+            return StatusCode(500, new { message = "An error occurred while creating the job" });
+        }
+    }
+
+    [HttpPut("{id:int}/status")]
+    public async Task<ActionResult> UpdateJobStatus(int id, [FromBody] UpdateJobStatusDto updateDto)
+    {
+        try
+        {
+            var job = await _jobRepository.GetJobByIdAsync(id);
+            if (job == null) return NotFound(new { message = $"Job with ID {id} not found" });
+
+            job.IsActive = updateDto.IsActive;
+            job.UpdatedAt = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, PerthTimeZone);
+
+            await _jobRepository.UpdateJobAsync(job);
+
+            return Ok(new { message = "Job status updated successfully" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating job status");
+            return StatusCode(500, new { message = "An error occurred while updating the job status" });
+        }
+    }
+
+    [HttpPut("{id:int}/mark-as-read")]
+    public async Task<ActionResult> MarkJobAsRead(int id)
+    {
+        try
+        {
+            var job = await _jobRepository.GetJobByIdAsync(id);
+            if (job == null) return NotFound(new { message = $"Job with ID {id} not found" });
+
+            job.IsNew = false;
+            job.UpdatedAt = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, PerthTimeZone);
+
+            await _jobRepository.UpdateJobAsync(job);
+
+            return Ok(new { message = "Job marked as read successfully" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error marking job as read");
+            return StatusCode(500, new { message = "An error occurred while marking the job as read" });
+        }
     }
 
     [HttpGet("new")]
@@ -164,38 +253,9 @@ public class JobsController : ControllerBase
 
         return Ok(response);
     }
+}
 
-    [HttpGet("search")]
-    public async Task<ActionResult<JobsResponseDto>> SearchJobs(
-        [FromQuery] string searchTerm,
-        [FromQuery] int pageNumber = 1,
-        [FromQuery] int pageSize = 10)
-    {
-        var jobs = await _jobRepository.SearchJobsByTitleAsync(searchTerm, pageNumber, pageSize);
-        var totalCount = await _jobRepository.CountJobsByTitleAsync(searchTerm);
-
-        var response = new JobsResponseDto
-        {
-            Jobs = jobs.Select(j => new JobDto
-            {
-                Id = j.Id,
-                JobTitle = j.JobTitle ?? "",
-                BusinessName = j.BusinessName ?? "",
-                WorkType = j.WorkType ?? "",
-                JobType = j.JobType ?? "",
-                PayRange = j.PayRange ?? "",
-                Suburb = j.Suburb ?? "",
-                Area = j.Area ?? "",
-                Url = j.Url ?? "",
-                Status = "Active",
-                PostedDate = j.PostedDate?.ToString("yyyy-MM-dd") ?? "",
-                JobDescription = j.JobDescription ?? ""
-            }),
-            TotalCount = totalCount,
-            PageNumber = pageNumber,
-            PageSize = pageSize
-        };
-
-        return Ok(response);
-    }
+public class UpdateJobStatusDto
+{
+    public bool IsActive { get; set; }
 }

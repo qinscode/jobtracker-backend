@@ -1,5 +1,6 @@
 using JobTracker.Data;
 using JobTracker.Models;
+using JobTracker.Utilities;
 using Microsoft.EntityFrameworkCore;
 
 namespace JobTracker.Repositories;
@@ -109,5 +110,82 @@ public class JobRepository : IJobRepository
             .Where(j => EF.Functions.ILike(j.JobTitle, $"%{searchTerm}%"))
             .Where(j => j.IsActive == true)
             .CountAsync();
+    }
+
+    public async Task<IEnumerable<Job>> SearchJobsByTitleAndCompanyAsync(string jobTitle, string companyName, int pageNumber, int pageSize)
+    {
+        // 清理搜索词
+        jobTitle = jobTitle.Trim().ToLower();
+        companyName = companyName.Trim().ToLower();
+
+        // 移除常见的公司后缀和前缀
+        var commonTerms = new[]
+        {
+            "ltd", "limited", "pty", "proprietary",
+            "inc", "incorporated", "corp", "corporation",
+            "group", "holdings", "international", "aust",
+            "australia", "asia", "pacific", "the"
+        };
+
+        // 清理公司名称
+        var cleanCompanyName = companyName;
+        foreach (var term in commonTerms)
+        {
+            cleanCompanyName = cleanCompanyName.Replace($" {term} ", " ")
+                .Replace($" {term}", "")
+                .Replace($"{term} ", "");
+        }
+        cleanCompanyName = cleanCompanyName.Trim();
+
+        // 分词并移除短词
+        var companyKeywords = cleanCompanyName
+            .Split(new[] { ' ', '-', '/', '&' }, StringSplitOptions.RemoveEmptyEntries)
+            .Where(k => k.Length > 2)  // 忽略太短的词
+            .ToList();
+
+        Console.WriteLine($"Clean company name: {cleanCompanyName}");
+        Console.WriteLine($"Company keywords: {string.Join(", ", companyKeywords)}");
+        Console.WriteLine($"Job title: {jobTitle}");
+
+        // 构建查询 - 先精确匹配职位，移除 IsActive 限制
+        var query = _context.Jobs
+            .Where(j => EF.Functions.ILike(j.JobTitle, $"%{jobTitle}%"))
+            .AsQueryable();
+
+        // 然后在职位匹配的结果中搜索公司
+        if (companyKeywords.Any())
+        {
+            var companyPredicate = PredicateBuilder.New<Job>();
+            foreach (var keyword in companyKeywords)
+            {
+                companyPredicate = companyPredicate.Or(j => 
+                    EF.Functions.ILike(j.BusinessName, $"%{keyword}%"));
+            }
+            query = query.Where(companyPredicate);
+        }
+
+        // 输出生成的SQL查询（用于调试）
+        var sql = query.ToQueryString();
+        Console.WriteLine($"\nGenerated SQL Query:\n{sql}\n");
+
+        // 获取结果并按创建时间排序
+        var results = await query
+            .OrderByDescending(j => j.CreatedAt)
+            .Take(50)  // 增加返回数量以提高匹配概率
+            .ToListAsync();
+
+        // 输出搜索结果
+        Console.WriteLine($"\nFound {results.Count} potential matches:");
+        foreach (var job in results)
+        {
+            Console.WriteLine($"- {job.BusinessName}: {job.JobTitle}");
+        }
+
+        return results;
+    }
+
+    public IQueryable<Job> GetQueryable()
+    {
+        return _context.Jobs.AsQueryable();
     }
 }

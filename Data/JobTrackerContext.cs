@@ -9,12 +9,16 @@ public class JobTrackerContext : DbContext
     {
     }
 
-    public DbSet<Job> Jobs { get; set; }
     public DbSet<User> Users { get; set; }
+    public DbSet<Job> Jobs { get; set; }
     public DbSet<UserJob> UserJobs { get; set; }
+    public DbSet<UserEmailConfig> UserEmailConfigs { get; set; }
+    public DbSet<AnalyzedEmail> AnalyzedEmails { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        base.OnModelCreating(modelBuilder);
+
         // Job configuration
         modelBuilder.Entity<Job>()
             .Property(j => j.CreatedAt)
@@ -57,5 +61,25 @@ public class JobTrackerContext : DbContext
             .HasOne(uj => uj.Job)
             .WithMany()
             .HasForeignKey(uj => uj.JobId);
+
+        // UserEmailConfig configuration
+        modelBuilder.Entity<UserEmailConfig>()
+            .Property(c => c.CreatedAt)
+            .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+        modelBuilder.Entity<UserEmailConfig>()
+            .Property(c => c.UpdatedAt)
+            .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+        // AnalyzedEmail configuration
+        modelBuilder.Entity<AnalyzedEmail>()
+            .HasOne(ae => ae.UserEmailConfig)
+            .WithMany()
+            .HasForeignKey(ae => ae.UserEmailConfigId);
+
+        modelBuilder.Entity<AnalyzedEmail>()
+            .HasOne(ae => ae.MatchedJob)
+            .WithMany()
+            .HasForeignKey(ae => ae.MatchedJobId);
     }
 }

@@ -142,13 +142,26 @@ public class UserJobRepository : IUserJobRepository
         int pageNumber, int pageSize)
     {
         var query = _context.UserJobs
-            .Where(uj => uj.UserId == userId)
-            .Where(uj => EF.Functions.ILike(uj.Job.JobTitle, $"%{searchTerm}%"));
+            .Where(uj => uj.UserId == userId);
 
-        if (status.HasValue) query = query.Where(uj => uj.Status == status.Value);
+        if (status.HasValue)
+        {
+            query = query.Where(uj => uj.Status == status.Value);
+        }
+
+        // 添加搜索条件
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            searchTerm = searchTerm.ToLower();
+            query = query.Where(uj =>
+                EF.Functions.ILike(uj.Job.JobTitle, $"%{searchTerm}%") ||
+                EF.Functions.ILike(uj.Job.BusinessName, $"%{searchTerm}%") ||
+                EF.Functions.ILike(uj.Job.JobDescription, $"%{searchTerm}%"));
+        }
 
         return await query
             .Select(uj => uj.Job)
+            .OrderByDescending(j => j.CreatedAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
@@ -157,10 +170,22 @@ public class UserJobRepository : IUserJobRepository
     public async Task<int> CountJobsByTitleAsync(Guid userId, string searchTerm, UserJobStatus? status)
     {
         var query = _context.UserJobs
-            .Where(uj => uj.UserId == userId)
-            .Where(uj => EF.Functions.ILike(uj.Job.JobTitle, $"%{searchTerm}%"));
+            .Where(uj => uj.UserId == userId);
 
-        if (status.HasValue) query = query.Where(uj => uj.Status == status.Value);
+        if (status.HasValue)
+        {
+            query = query.Where(uj => uj.Status == status.Value);
+        }
+
+        // 添加搜索条件
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            searchTerm = searchTerm.ToLower();
+            query = query.Where(uj =>
+                EF.Functions.ILike(uj.Job.JobTitle, $"%{searchTerm}%") ||
+                EF.Functions.ILike(uj.Job.BusinessName, $"%{searchTerm}%") ||
+                EF.Functions.ILike(uj.Job.JobDescription, $"%{searchTerm}%"));
+        }
 
         return await query.CountAsync();
     }
