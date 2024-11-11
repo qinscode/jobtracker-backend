@@ -62,8 +62,13 @@ builder.Services.AddCors(options =>
     })
     .AddGoogle(googleOptions =>
     {
-        googleOptions.ClientId = builder.Configuration["Authentication:Google:ClientId"];
-        googleOptions.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
+        var clientId = builder.Configuration["Authentication:Google:ClientId"] ??
+                       throw new InvalidOperationException("Google Client ID is not configured");
+        var clientSecret = builder.Configuration["Authentication:Google:ClientSecret"] ??
+                           throw new InvalidOperationException("Google Client Secret is not configured");
+
+        googleOptions.ClientId = clientId;
+        googleOptions.ClientSecret = clientSecret;
     });
 
 // Add DbContext
