@@ -16,6 +16,17 @@ public interface IJobRepository
     Task<int> GetNewJobsCountAsync();
     Task<IEnumerable<Job>> SearchJobsByTitleAsync(string searchTerm, int pageNumber, int pageSize);
     Task<int> CountJobsByTitleAsync(string searchTerm);
-    Task<IEnumerable<Job>> SearchJobsByTitleAndCompanyAsync(string jobTitle, string companyName, int pageNumber, int pageSize);
+
+    Task<IEnumerable<Job>> SearchJobsByTitleAndCompanyAsync(string jobTitle, string companyName, int pageNumber,
+        int pageSize);
+
     IQueryable<Job> GetQueryable();
+    Task<Dictionary<DateTime, int>> GetJobCountsByDateAsync(int numberOfDays);
+    Task<IEnumerable<JobTypeCount>> GetTopJobTypesAsync(int count);
+}
+
+public class JobTypeCount
+{
+    public string JobType { get; set; } = string.Empty;
+    public int Count { get; set; }
 }

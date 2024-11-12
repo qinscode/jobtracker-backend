@@ -250,6 +250,58 @@ public class JobsController : ControllerBase
 
         return Ok(response);
     }
+
+    public class DailyJobCount
+    {
+        public string Date { get; set; } = string.Empty;
+        public int Count { get; set; }
+    }
+
+    [HttpGet("daily-counts")]
+    public async Task<ActionResult<IEnumerable<DailyJobCount>>> GetDailyJobCounts([FromQuery] int days = 5)
+    {
+        try
+        {
+            var jobCounts = await _jobRepository.GetJobCountsByDateAsync(days);
+
+            var result = jobCounts
+                .Select(kv => new DailyJobCount
+                {
+                    Date = kv.Key.ToString("yyyy-MM-dd"),
+                    Count = kv.Value
+                })
+                .ToList();
+
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting daily job counts");
+            return StatusCode(500, new { message = "An error occurred while getting daily job counts" });
+        }
+    }
+
+    [HttpGet("top-job-types")]
+    public async Task<ActionResult<IEnumerable<JobTypeCount>>> GetTopJobTypes([FromQuery] int count = 5)
+    {
+        try
+        {
+            var topTypes = await _jobRepository.GetTopJobTypesAsync(count);
+
+            // 如果没有数据，返回空列表而不是404
+            if (!topTypes.Any())
+            {
+                return Ok(new List<JobTypeCount>());
+            }
+
+            return Ok(topTypes);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting top job types");
+            return StatusCode(500, new { message = "An error occurred while getting top job types" });
+        }
+    }
 }
 
 public class UpdateJobStatusDto

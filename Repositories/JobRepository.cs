@@ -191,4 +191,42 @@ public class JobRepository : IJobRepository
     {
         return _context.Jobs.AsQueryable();
     }
+
+    public async Task<Dictionary<DateTime, int>> GetJobCountsByDateAsync(int numberOfDays)
+    {
+        var startDate = DateTime.UtcNow.Date.AddDays(-numberOfDays + 1);
+
+        var jobCounts = await _context.Jobs
+            .Where(j => j.PostedDate.HasValue &&
+                        j.PostedDate.Value.Date >= startDate &&
+                        j.IsActive == true)
+            .GroupBy(j => j.PostedDate.Value.Date)
+            .Select(g => new { Date = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Date, x => x.Count);
+
+        // Fill in missing dates with zero counts
+        var result = new Dictionary<DateTime, int>();
+        for (var date = startDate; date <= DateTime.UtcNow.Date; date = date.AddDays(1))
+        {
+            result[date] = jobCounts.ContainsKey(date) ? jobCounts[date] : 0;
+        }
+
+        return result.OrderByDescending(x => x.Key) // 按日期降序排序
+            .ToDictionary(x => x.Key, x => x.Value);
+    }
+
+    public async Task<IEnumerable<JobTypeCount>> GetTopJobTypesAsync(int count)
+    {
+        return await _context.Jobs
+            .Where(j => j.IsActive == true && !string.IsNullOrEmpty(j.JobType))
+            .GroupBy(j => j.JobType)
+            .Select(g => new JobTypeCount
+            {
+                JobType = g.Key!,
+                Count = g.Count()
+            })
+            .OrderByDescending(x => x.Count)
+            .Take(count)
+            .ToListAsync();
+    }
 }
