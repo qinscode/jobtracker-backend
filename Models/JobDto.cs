@@ -14,4 +14,5 @@ public class JobDto
     public string Status { get; set; } = string.Empty;
     public string PostedDate { get; set; } = string.Empty;
     public string JobDescription { get; set; } = string.Empty;
+    public bool IsNew { get; set; } = false;
 }

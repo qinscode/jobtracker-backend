@@ -78,8 +78,7 @@ public class JobRepository : IJobRepository
     public async Task<IEnumerable<Job>> GetNewJobsAsync(int pageNumber, int pageSize)
     {
         return await _context.Jobs
-            .Where(j => j.IsNew == true)
-            .Where(j => j.IsActive == true)
+            .Where(j => j.IsNew == true && j.IsActive == true)
             .OrderByDescending(j => j.CreatedAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
@@ -89,7 +88,7 @@ public class JobRepository : IJobRepository
     public async Task<int> GetNewJobsCountAsync()
     {
         return await _context.Jobs
-            .Where(j => j.IsNew == true)
+            .Where(j => j.IsNew == true && j.IsActive == true)
             .CountAsync();
     }
 

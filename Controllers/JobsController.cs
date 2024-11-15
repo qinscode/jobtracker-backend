@@ -224,37 +224,31 @@ public class JobsController : ControllerBase
         var jobs = await _jobRepository.GetNewJobsAsync(pageNumber, pageSize);
         var totalCount = await _jobRepository.GetNewJobsCountAsync();
 
-        // if (totalCount == 0) return NotFound(new { message = "No new jobs found" });
+        var jobDtos = jobs.Select(j => new JobDto
+        {
+            Id = j.Id,
+            JobTitle = j.JobTitle ?? string.Empty,
+            BusinessName = j.BusinessName ?? string.Empty,
+            WorkType = j.WorkType ?? string.Empty,
+            JobType = j.JobType ?? string.Empty,
+            PayRange = j.PayRange ?? string.Empty,
+            Suburb = j.Suburb ?? string.Empty,
+            Area = j.Area ?? string.Empty,
+            Url = j.Url ?? string.Empty,
+            IsNew = true,
+            PostedDate = j.PostedDate?.ToString("yyyy-MM-dd") ?? string.Empty,
+            JobDescription = j.JobDescription ?? string.Empty
+        });
 
         var response = new JobsResponseDto
         {
-            Jobs = jobs.Select(j => new JobDto
-            {
-                Id = j.Id,
-                JobTitle = j.JobTitle ?? string.Empty,
-                BusinessName = j.BusinessName ?? string.Empty,
-                WorkType = j.WorkType ?? string.Empty,
-                JobType = j.JobType ?? string.Empty,
-                PayRange = j.PayRange ?? string.Empty,
-                Suburb = j.Suburb ?? string.Empty,
-                Area = j.Area ?? string.Empty,
-                Url = j.Url ?? string.Empty,
-                Status = "New",
-                PostedDate = j.PostedDate?.ToString("yyyy-MM-dd") ?? string.Empty,
-                JobDescription = j.JobDescription ?? string.Empty
-            }),
+            Jobs = jobDtos,
             TotalCount = totalCount,
             PageNumber = pageNumber,
             PageSize = pageSize
         };
 
         return Ok(response);
-    }
-
-    public class DailyJobCount
-    {
-        public string Date { get; set; } = string.Empty;
-        public int Count { get; set; }
     }
 
     [HttpGet("daily-counts")]
@@ -289,10 +283,7 @@ public class JobsController : ControllerBase
             var topTypes = await _jobRepository.GetTopJobTypesAsync(count);
 
             // 如果没有数据，返回空列表而不是404
-            if (!topTypes.Any())
-            {
-                return Ok(new List<JobTypeCount>());
-            }
+            if (!topTypes.Any()) return Ok(new List<JobTypeCount>());
 
             return Ok(topTypes);
         }
@@ -301,6 +292,12 @@ public class JobsController : ControllerBase
             _logger.LogError(ex, "Error getting top job types");
             return StatusCode(500, new { message = "An error occurred while getting top job types" });
         }
+    }
+
+    public class DailyJobCount
+    {
+        public string Date { get; set; } = string.Empty;
+        public int Count { get; set; }
     }
 }
 
