@@ -65,20 +65,13 @@ public class AuthController : ControllerBase
     [HttpPost("google")]
     public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginModel model)
     {
-        Console.WriteLine("Received Google login request");
-        Console.WriteLine($"Token: {model.access_token}");
-
         if (!ModelState.IsValid)
         {
-            Console.WriteLine("Model state is invalid");
             return BadRequest(ModelState);
         }
 
         try
         {
-            Console.WriteLine("Attempting to get user info using access token");
-
-
             var httpClient = new HttpClient();
             httpClient.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue("Bearer", model.access_token);
@@ -86,12 +79,11 @@ public class AuthController : ControllerBase
 
             if (!response.IsSuccessStatusCode)
             {
-                Console.WriteLine($"Failed to get user info: {response.StatusCode}");
                 return Unauthorized(new { message = "Invalid access token" });
             }
 
             var content = await response.Content.ReadAsStringAsync();
-            Console.WriteLine($"Raw Google API response: {content}");
+
 
             var options = new JsonSerializerOptions
             {
@@ -99,13 +91,9 @@ public class AuthController : ControllerBase
             };
             var googleUser = JsonSerializer.Deserialize<GoogleUserInfo>(content, options);
 
-            Console.WriteLine("User info retrieved successfully");
-            Console.WriteLine($"Email: {googleUser?.Email}");
-            Console.WriteLine($"Name: {googleUser?.Name}");
 
             if (googleUser == null || string.IsNullOrEmpty(googleUser.Email))
             {
-                Console.WriteLine("Email is null or empty");
                 return BadRequest(new { message = "Email is required and was not provided by Google" });
             }
 
@@ -113,7 +101,6 @@ public class AuthController : ControllerBase
 
             if (user == null)
             {
-                Console.WriteLine("User not found, creating new user");
                 user = new User
                 {
                     Email = googleUser.Email,
@@ -123,22 +110,15 @@ public class AuthController : ControllerBase
                     UpdatedAt = DateTime.UtcNow
                 };
                 await _userRepository.CreateUserAsync(user);
-                Console.WriteLine($"New user created with ID: {user.Id}");
-            }
-            else
-            {
-                Console.WriteLine($"Existing user found with ID: {user.Id}");
             }
 
+
             var token = GenerateJwtToken(user);
-            Console.WriteLine("JWT token generated");
 
             return Ok(new { Token = token });
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Unexpected error during Google login: {ex.Message}");
-            Console.WriteLine($"Stack trace: {ex.StackTrace}");
             return StatusCode(500, new { message = "An unexpected error occurred" });
         }
     }

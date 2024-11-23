@@ -142,9 +142,6 @@ public class JobRepository : IJobRepository
             .Where(k => k.Length > 2) // 忽略太短的词
             .ToList();
 
-        Console.WriteLine($"Clean company name: {cleanCompanyName}");
-        Console.WriteLine($"Company keywords: {string.Join(", ", companyKeywords)}");
-        Console.WriteLine($"Job title: {jobTitle}");
 
         // 构建查询 - 先精确匹配职位
         var query = _context.Jobs
@@ -164,17 +161,13 @@ public class JobRepository : IJobRepository
 
         // 输出生成的SQL查询（用于调试）
         var sql = query.ToQueryString();
-        Console.WriteLine($"\nGenerated SQL Query:\n{sql}\n");
+
 
         // 获取结果并按创建时间排序
         var results = await query
             .OrderByDescending(j => j.CreatedAt)
             .Take(50) // 增加返回数量以提高匹配概率
             .ToListAsync();
-
-        // 输出搜索结果
-        Console.WriteLine($"\nFound {results.Count} potential matches:");
-        foreach (var job in results) Console.WriteLine($"- {job.BusinessName}: {job.JobTitle}");
 
         return results;
     }

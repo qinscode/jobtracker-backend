@@ -111,10 +111,6 @@ public class EmailAnalysisService : IEmailAnalysisService
                 // 如果提取到了公司名称和职位名称
                 if (!string.IsNullOrWhiteSpace(jobInfo.CompanyName) && !string.IsNullOrWhiteSpace(jobInfo.JobTitle))
                 {
-                    Console.WriteLine("\nExtracted Job Info:");
-                    Console.WriteLine($"Company: {jobInfo.CompanyName}");
-                    Console.WriteLine($"Title: {jobInfo.JobTitle}");
-
                     var (isMatch, job, similarity) = await _jobMatchingService.FindMatchingJobAsync(
                         jobInfo.JobTitle,
                         jobInfo.CompanyName);
@@ -142,7 +138,6 @@ public class EmailAnalysisService : IEmailAnalysisService
                     }
                     else
                     {
-                        Console.WriteLine("\nNo match found, creating new job...");
                         var perthTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, PerthTimeZone);
                         var newJob = new Job
                         {
@@ -166,7 +161,7 @@ public class EmailAnalysisService : IEmailAnalysisService
                         try
                         {
                             newJob = await _jobRepository.CreateJobAsync(newJob);
-                            Console.WriteLine($"Created new job with ID: {newJob.Id}");
+
 
                             var userJob = new UserJob
                             {
@@ -177,7 +172,7 @@ public class EmailAnalysisService : IEmailAnalysisService
                                 UpdatedAt = perthTime
                             };
                             await _userJobRepository.CreateUserJobAsync(userJob);
-                            Console.WriteLine("Created new UserJob record");
+
 
                             var analyzedEmail = new AnalyzedEmail
                             {
@@ -188,7 +183,7 @@ public class EmailAnalysisService : IEmailAnalysisService
                                 MatchedJobId = newJob.Id
                             };
                             await _analyzedEmailRepository.CreateAsync(analyzedEmail);
-                            Console.WriteLine("Created new AnalyzedEmail record");
+
 
                             matchedJob = newJob;
 
@@ -237,7 +232,7 @@ public class EmailAnalysisService : IEmailAnalysisService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error analyzing email with subject: {Subject}", email.Subject);
-                Console.WriteLine($"Error processing email: {ex.Message}\n");
+
                 results.Add(new EmailAnalysisDto
                 {
                     Subject = email.Subject,

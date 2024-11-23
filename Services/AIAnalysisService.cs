@@ -61,7 +61,6 @@ public class AIAnalysisService : IAIAnalysisService
         {
             var result = await CallGeminiApiWithRetry(emailContent);
             _logger.LogInformation("Gemini Analysis Result: {Result}", result);
-            Console.WriteLine($"Gemini Analysis Result: {result}");
 
             if (string.IsNullOrEmpty(result)) return false;
 
@@ -82,7 +81,7 @@ public class AIAnalysisService : IAIAnalysisService
         {
             var result = await CallGeminiApiWithRetry(emailContent);
             _logger.LogInformation("Gemini Analysis Result: {Result}", result);
-            Console.WriteLine($"Gemini Analysis Result: {result}");
+
 
             if (string.IsNullOrEmpty(result)) return ("", "");
 
@@ -113,7 +112,7 @@ public class AIAnalysisService : IAIAnalysisService
                 ex.Message.Contains("RESOURCE_EXHAUSTED"))
             {
                 _logger.LogWarning("API quota exceeded, will retry after delay");
-                Console.WriteLine("API quota exceeded, will retry after delay");
+
                 throw; // 重新抛出异常，让重试策略处理
             }
         });

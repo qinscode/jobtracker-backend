@@ -166,14 +166,6 @@ public class EmailService : IEmailService
                                 ReceivedDate = TimeZoneInfo.ConvertTimeFromUtc(message.Date.UtcDateTime, PerthTimeZone)
                             });
 
-                            // 输出邮件信息到控制台
-                            Console.WriteLine("\n========== Email Found ==========");
-                            Console.WriteLine($"Subject: {message.Subject}");
-                            Console.WriteLine($"Date: {message.Date.DateTime}");
-                            Console.WriteLine($"From: {message.From}");
-                            Console.WriteLine("Content Preview: ");
-                            Console.WriteLine(textBody.Length > 50 ? textBody[..50] + "..." : textBody);
-                            Console.WriteLine("================================\n");
 
                             _logger.LogDebug("Successfully processed email with subject: {Subject}",
                                 message.Subject);

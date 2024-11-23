@@ -1,5 +1,4 @@
 using System.IdentityModel.Tokens.Jwt;
-using System.Text.Json;
 using JobTracker.Models;
 using JobTracker.Repositories;
 using Microsoft.AspNetCore.Authorization;
@@ -51,7 +50,6 @@ public class UserJobsController : ControllerBase
     public async Task<ActionResult<MessageResponseDto>> CreateUserJob([FromBody] CreateUserJobDto createUserJobDto)
     {
         var userId = GetUserIdFromToken();
-        Console.WriteLine($"Received request: {JsonSerializer.Serialize(createUserJobDto)}");
 
         if (createUserJobDto == null) return BadRequest(new { message = "Invalid request body" });
 
@@ -155,8 +153,6 @@ public class UserJobsController : ControllerBase
     {
         var userGuid = GetUserIdFromToken();
 
-        Console.WriteLine($"UserGuid: {userGuid}");
-        Console.WriteLine($"SearchTerm: {searchTerm}");
 
         // 如果提供了搜索词，使用搜索方法
         if (!string.IsNullOrWhiteSpace(searchTerm))
@@ -217,8 +213,6 @@ public class UserJobsController : ControllerBase
             PageSize = pageSize
         };
 
-        Console.WriteLine($"Response: {JsonSerializer.Serialize(regularResponse)}");
-        Console.WriteLine($"Jobs: {JsonSerializer.Serialize(regularResponse.Jobs)}");
 
         return Ok(regularResponse);
     }
@@ -372,8 +366,8 @@ public class UserJobsController : ControllerBase
 
         if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userGuid))
             throw new UnauthorizedAccessException("Invalid or missing user ID in the token");
-        Console.WriteLine($"User ID: {userGuid}");
-        Console.WriteLine($"Token: {token}");
+
+
         return userGuid;
     }
 
