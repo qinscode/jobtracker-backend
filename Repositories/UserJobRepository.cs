@@ -207,4 +207,113 @@ public class UserJobRepository : IUserJobRepository
             .Include(uj => uj.Job)
             .ToListAsync();
     }
+
+    public async Task<int> GetUserJobsCountInLastDaysAsync(Guid userId, int days)
+    {
+        var cutoffDate = DateTime.UtcNow.AddDays(-days);
+        return await _context.UserJobs
+            .Where(uj => uj.UserId == userId && uj.CreatedAt >= cutoffDate)
+            .CountAsync();
+    }
+
+    public async Task<IEnumerable<(DateTime Date, int Count)>> GetDailyApplicationCountsAsync(Guid userId, int days)
+    {
+        var startDate = DateTime.UtcNow.Date.AddDays(-days + 1);
+
+        var dailyCounts = await _context.UserJobs
+            .Where(uj => uj.UserId == userId && uj.CreatedAt >= startDate)
+            .GroupBy(uj => uj.CreatedAt.Date)
+            .Select(g => new { Date = g.Key, Count = g.Count() })
+            .ToListAsync();
+
+        // 确保所有日期都有数据，即使是0
+        var result = new List<(DateTime Date, int Count)>();
+        for (var date = startDate; date <= DateTime.UtcNow.Date; date = date.AddDays(1))
+        {
+            var count = dailyCounts.FirstOrDefault(x => x.Date == date)?.Count ?? 0;
+            result.Add((date, count));
+        }
+
+        return result.OrderBy(x => x.Date);
+    }
+
+    public async Task<CumulativeStatusCountDto> GetCumulativeStatusCountsAsync(Guid userId)
+    {
+        var result = new CumulativeStatusCountDto();
+
+        // 获取每个状态的数量
+        var appliedCount = await _context.UserJobs
+            .CountAsync(uj => uj.UserId == userId && (
+                uj.Status == UserJobStatus.Applied ||
+                uj.Status == UserJobStatus.Reviewed ||
+                uj.Status == UserJobStatus.Interviewing ||
+                uj.Status == UserJobStatus.TechnicalAssessment ||
+                uj.Status == UserJobStatus.Offered
+            ));
+
+        var reviewedCount = await _context.UserJobs
+            .CountAsync(uj => uj.UserId == userId && (
+                uj.Status == UserJobStatus.Reviewed ||
+                uj.Status == UserJobStatus.Interviewing ||
+                uj.Status == UserJobStatus.TechnicalAssessment ||
+                uj.Status == UserJobStatus.Offered
+            ));
+
+        var interviewingCount = await _context.UserJobs
+            .CountAsync(uj => uj.UserId == userId && (
+                uj.Status == UserJobStatus.Interviewing ||
+                uj.Status == UserJobStatus.TechnicalAssessment ||
+                uj.Status == UserJobStatus.Offered
+            ));
+
+        var technicalCount = await _context.UserJobs
+            .CountAsync(uj => uj.UserId == userId && (
+                uj.Status == UserJobStatus.TechnicalAssessment ||
+                uj.Status == UserJobStatus.Offered
+            ));
+
+        var offeredCount = await _context.UserJobs
+            .CountAsync(uj => uj.UserId == userId &&
+                              uj.Status == UserJobStatus.Offered
+            );
+
+        result.Applied = appliedCount;
+        result.Reviewed = reviewedCount;
+        result.Interviewing = interviewingCount;
+        result.TechnicalAssessment = technicalCount;
+        result.Offered = offeredCount;
+
+        return result;
+    }
+
+    public async Task<IEnumerable<WorkTypeCountDto>> GetWorkTypeCountsAsync(Guid userId)
+    {
+        return await _context.UserJobs
+            .Where(uj => uj.UserId == userId && uj.Job != null && uj.Job.IsActive == true)
+            .GroupBy(uj => uj.Job!.WorkType ?? "Unknown")
+            .Select(g => new WorkTypeCountDto
+            {
+                WorkType = g.Key,
+                Count = g.Count()
+            })
+            .OrderByDescending(x => x.Count)
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<SuburbCountDto>> GetSuburbCountsAsync(Guid userId)
+    {
+        return await _context.UserJobs
+            .Where(uj => uj.UserId == userId &&
+                         uj.Job != null &&
+                         uj.Job.IsActive == true &&
+                         !string.IsNullOrWhiteSpace(uj.Job.Suburb))
+            .GroupBy(uj => uj.Job!.Suburb!)
+            .Select(g => new SuburbCountDto
+            {
+                Suburb = g.Key,
+                Count = g.Count()
+            })
+            .OrderByDescending(x => x.Count)
+            .ToListAsync();
+    }
 }

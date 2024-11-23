@@ -294,6 +294,34 @@ public class JobsController : ControllerBase
         }
     }
 
+    [HttpGet("statistics")]
+    public async Task<ActionResult<JobStatisticsResponse>> GetJobStatistics([FromQuery] int days = 7)
+    {
+        try
+        {
+            // Validate days parameter
+            if (days < 1 || days > 90)
+            {
+                return BadRequest(new { message = "Days parameter must be between 1 and 90" });
+            }
+
+            var statistics = await _jobRepository.GetJobStatisticsAsync(days);
+
+            var response = new JobStatisticsResponse
+            {
+                DailyStatistics = statistics,
+                Days = days
+            };
+
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting job statistics");
+            return StatusCode(500, new { message = "An error occurred while getting job statistics" });
+        }
+    }
+
     public class DailyJobCount
     {
         public string Date { get; set; } = string.Empty;

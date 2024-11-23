@@ -306,6 +306,67 @@ public class UserJobsController : ControllerBase
         return Ok(response);
     }
 
+    [HttpGet("last-seven-days/count")]
+    public async Task<ActionResult<int>> GetUserJobsCountInLastSevenDays()
+    {
+        var userId = GetUserIdFromToken();
+        var count = await _userJobRepository.GetUserJobsCountInLastDaysAsync(userId, 7);
+        return Ok(count);
+    }
+
+    [HttpGet("last-seven-days/daily-counts")]
+    public async Task<ActionResult<IEnumerable<DailyApplicationCountDto>>> GetDailyApplicationCounts()
+    {
+        var userId = GetUserIdFromToken();
+        var dailyCounts = await _userJobRepository.GetDailyApplicationCountsAsync(userId, 7);
+
+        var result = dailyCounts.Select(dc => new DailyApplicationCountDto
+        {
+            Date = dc.Date.ToString("yyyy-MM-dd"),
+            Count = dc.Count
+        });
+
+        return Ok(result);
+    }
+
+    [HttpGet("cumulative-status-counts")]
+    public async Task<ActionResult<CumulativeStatusCountDto>> GetCumulativeStatusCounts()
+    {
+        var userId = GetUserIdFromToken();
+        var counts = await _userJobRepository.GetCumulativeStatusCountsAsync(userId);
+        return Ok(counts);
+    }
+
+    [HttpGet("work-type-counts")]
+    public async Task<ActionResult<IEnumerable<WorkTypeCountDto>>> GetWorkTypeCounts()
+    {
+        var userId = GetUserIdFromToken();
+        var counts = await _userJobRepository.GetWorkTypeCountsAsync(userId);
+
+        // 如果没有数据，返回空列表而不是404
+        if (!counts.Any())
+        {
+            return Ok(new List<WorkTypeCountDto>());
+        }
+
+        return Ok(counts);
+    }
+
+    [HttpGet("suburb-counts")]
+    public async Task<ActionResult<IEnumerable<SuburbCountDto>>> GetSuburbCounts()
+    {
+        var userId = GetUserIdFromToken();
+        var counts = await _userJobRepository.GetSuburbCountsAsync(userId);
+
+        // 如果没有数据，返回空列表而不是404
+        if (!counts.Any())
+        {
+            return Ok(new List<SuburbCountDto>());
+        }
+
+        return Ok(counts);
+    }
+
     private Guid GetUserIdFromToken()
     {
         var token = HttpContext.Request.Headers["Authorization"].FirstOrDefault()?.Split(" ").Last();

@@ -228,4 +228,40 @@ public class JobRepository : IJobRepository
             .Take(count)
             .ToListAsync();
     }
+
+    public async Task<IEnumerable<DailyJobStatistics>> GetJobStatisticsAsync(int days)
+    {
+        // Validate and cap the days parameter
+        days = Math.Min(Math.Max(1, days), 90);
+
+        var endDate = DateTime.UtcNow.Date;
+        var startDate = endDate.AddDays(-days + 1);
+
+        // Get all jobs that might be active in this period
+        var jobs = await _context.Jobs
+            .Where(j => j.CreatedAt != null &&
+                        j.CreatedAt.Date <= endDate &&
+                        (j.ExpiryDate == null || j.ExpiryDate.Value.Date > startDate))
+            .ToListAsync();
+
+        var statistics = new List<DailyJobStatistics>();
+
+        for (var date = startDate; date <= endDate; date = date.AddDays(1))
+        {
+            var activeJobs = jobs.Count(j =>
+                j.CreatedAt.Date <= date &&
+                (j.ExpiryDate == null || j.ExpiryDate.Value.Date > date));
+
+            var newJobs = jobs.Count(j => j.CreatedAt.Date == date);
+
+            statistics.Add(new DailyJobStatistics
+            {
+                Date = date.ToString("yyyy-MM-dd"),
+                ActiveJobsCount = activeJobs,
+                NewJobsCount = newJobs
+            });
+        }
+
+        return statistics;
+    }
 }

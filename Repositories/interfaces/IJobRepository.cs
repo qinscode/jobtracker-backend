@@ -23,6 +23,7 @@ public interface IJobRepository
     IQueryable<Job> GetQueryable();
     Task<Dictionary<DateTime, int>> GetJobCountsByDateAsync(int numberOfDays);
     Task<IEnumerable<JobTypeCount>> GetTopJobTypesAsync(int count);
+    Task<IEnumerable<DailyJobStatistics>> GetJobStatisticsAsync(int days);
 }
 
 public class JobTypeCount
