@@ -130,11 +130,9 @@ public class JobRepository : IJobRepository
         // 清理公司名称
         var cleanCompanyName = companyName;
         foreach (var term in commonTerms)
-        {
             cleanCompanyName = cleanCompanyName.Replace($" {term} ", " ")
                 .Replace($" {term}", "")
                 .Replace($"{term} ", "");
-        }
 
         cleanCompanyName = cleanCompanyName.Trim();
 
@@ -158,10 +156,8 @@ public class JobRepository : IJobRepository
         {
             var companyPredicate = PredicateBuilder.New<Job>();
             foreach (var keyword in companyKeywords.Where(k => !string.IsNullOrEmpty(k)))
-            {
                 companyPredicate = companyPredicate.Or(j =>
                     j.BusinessName != null && EF.Functions.ILike(j.BusinessName, $"%{keyword}%"));
-            }
 
             query = query.Where(companyPredicate);
         }
@@ -178,10 +174,7 @@ public class JobRepository : IJobRepository
 
         // 输出搜索结果
         Console.WriteLine($"\nFound {results.Count} potential matches:");
-        foreach (var job in results)
-        {
-            Console.WriteLine($"- {job.BusinessName}: {job.JobTitle}");
-        }
+        foreach (var job in results) Console.WriteLine($"- {job.BusinessName}: {job.JobTitle}");
 
         return results;
     }
@@ -205,9 +198,7 @@ public class JobRepository : IJobRepository
         // Fill in missing dates with zero counts
         var result = new Dictionary<DateTime, int>();
         for (var date = startDate; date <= DateTime.UtcNow.Date; date = date.AddDays(1))
-        {
             result[date] = jobCounts.ContainsKey(date) ? jobCounts[date] : 0;
-        }
 
         return result.OrderByDescending(x => x.Key)
             .ToDictionary(x => x.Key, x => x.Value);

@@ -300,10 +300,7 @@ public class JobsController : ControllerBase
         try
         {
             // Validate days parameter
-            if (days < 1 || days > 90)
-            {
-                return BadRequest(new { message = "Days parameter must be between 1 and 90" });
-            }
+            if (days < 1 || days > 90) return BadRequest(new { message = "Days parameter must be between 1 and 90" });
 
             var statistics = await _jobRepository.GetJobStatisticsAsync(days);
 

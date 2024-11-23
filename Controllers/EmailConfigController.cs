@@ -112,10 +112,7 @@ public class EmailConfigController : ControllerBase
         try
         {
             var config = await _configRepository.GetByIdAsync(id);
-            if (config == null)
-            {
-                return NotFound();
-            }
+            if (config == null) return NotFound();
 
             var results = await _emailAnalysisService.AnalyzeRecentEmails(config);
             return Ok(results);

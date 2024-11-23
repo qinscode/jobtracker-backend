@@ -21,10 +21,7 @@ public class UsersController : ControllerBase
     {
         var userGuid = GetUserIdFromToken();
         var user = await _userRepository.GetUserByIdAsync(userGuid);
-        if (user == null)
-        {
-            return NotFound();
-        }
+        if (user == null) return NotFound();
         return Ok(new UserDto { Username = user.Username, Email = user.Email });
     }
 

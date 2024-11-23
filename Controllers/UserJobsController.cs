@@ -344,10 +344,7 @@ public class UserJobsController : ControllerBase
         var counts = await _userJobRepository.GetWorkTypeCountsAsync(userId);
 
         // 如果没有数据，返回空列表而不是404
-        if (!counts.Any())
-        {
-            return Ok(new List<WorkTypeCountDto>());
-        }
+        if (!counts.Any()) return Ok(new List<WorkTypeCountDto>());
 
         return Ok(counts);
     }
@@ -359,10 +356,7 @@ public class UserJobsController : ControllerBase
         var counts = await _userJobRepository.GetSuburbCountsAsync(userId);
 
         // 如果没有数据，返回空列表而不是404
-        if (!counts.Any())
-        {
-            return Ok(new List<SuburbCountDto>());
-        }
+        if (!counts.Any()) return Ok(new List<SuburbCountDto>());
 
         return Ok(counts);
     }

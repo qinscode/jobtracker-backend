@@ -1,5 +1,3 @@
-using JobTracker.Models;
-
 namespace JobTracker.Repositories;
 
 public interface IUserEmailConfigRepository
@@ -10,4 +8,4 @@ public interface IUserEmailConfigRepository
     Task DeleteAsync(Guid id);
     Task<UserEmailConfig?> GetByIdAsync(Guid id);
     Task<IEnumerable<UserEmailConfig>> GetAllActiveConfigsAsync();
-} 
+}

@@ -234,7 +234,6 @@ public class EmailService : IEmailService
     {
         var textBody = message.TextBody ?? message.HtmlBody;
         if (!string.IsNullOrEmpty(textBody))
-        {
             await Task.Run(() =>
             {
                 messages.Add(new EmailMessage
@@ -247,6 +246,5 @@ public class EmailService : IEmailService
 
                 _logger.LogDebug("Processed email: {Subject}", message.Subject);
             });
-        }
     }
 }

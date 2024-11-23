@@ -1,5 +1,4 @@
 using JobTracker.Data;
-using JobTracker.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace JobTracker.Repositories;
@@ -55,4 +54,4 @@ public class UserEmailConfigRepository : IUserEmailConfigRepository
             .Where(c => c.IsActive)
             .ToListAsync();
     }
-} 
+}

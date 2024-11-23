@@ -149,10 +149,7 @@ public class UserJobRepository : IUserJobRepository
             .Include(uj => uj.Job)
             .Where(uj => uj.Job != null);
 
-        if (status.HasValue)
-        {
-            query = query.Where(uj => uj.Status == status.Value);
-        }
+        if (status.HasValue) query = query.Where(uj => uj.Status == status.Value);
 
         if (!string.IsNullOrWhiteSpace(searchTerm))
         {
@@ -181,10 +178,7 @@ public class UserJobRepository : IUserJobRepository
             .Include(uj => uj.Job)
             .Where(uj => uj.Job != null);
 
-        if (status.HasValue)
-        {
-            query = query.Where(uj => uj.Status == status.Value);
-        }
+        if (status.HasValue) query = query.Where(uj => uj.Status == status.Value);
 
         if (!string.IsNullOrWhiteSpace(searchTerm))
         {
@@ -198,14 +192,6 @@ public class UserJobRepository : IUserJobRepository
         }
 
         return await query.CountAsync();
-    }
-
-    public async Task<IEnumerable<UserJob>> GetAllUserJobsAsync()
-    {
-        return await _context.UserJobs
-            .Include(uj => uj.User)
-            .Include(uj => uj.Job)
-            .ToListAsync();
     }
 
     public async Task<int> GetUserJobsCountInLastDaysAsync(Guid userId, int days)
@@ -314,6 +300,14 @@ public class UserJobRepository : IUserJobRepository
                 Count = g.Count()
             })
             .OrderByDescending(x => x.Count)
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<UserJob>> GetAllUserJobsAsync()
+    {
+        return await _context.UserJobs
+            .Include(uj => uj.User)
+            .Include(uj => uj.Job)
             .ToListAsync();
     }
 }

@@ -162,7 +162,7 @@ public class AIAnalysisService : IAIAnalysisService
         _logger.LogInformation("Raw Gemini Response: {Response}", responseContent);
 
         var result = JsonSerializer.Deserialize<GeminiApiResponse>(responseContent);
-        
+
         if (result?.Candidates == null || !result.Candidates.Any())
         {
             _logger.LogError("No candidates in Gemini response");
@@ -170,7 +170,7 @@ public class AIAnalysisService : IAIAnalysisService
         }
 
         var text = result.Candidates.FirstOrDefault()?.Content?.Parts?.FirstOrDefault()?.Text;
-        
+
         if (string.IsNullOrEmpty(text))
         {
             _logger.LogError("Empty text in Gemini response");
@@ -191,25 +191,21 @@ public class AIAnalysisService : IAIAnalysisService
 
     private class GeminiApiResponse
     {
-        [JsonPropertyName("candidates")]
-        public List<Candidate>? Candidates { get; set; }
+        [JsonPropertyName("candidates")] public List<Candidate>? Candidates { get; set; }
     }
 
     private class Candidate
     {
-        [JsonPropertyName("content")]
-        public Content? Content { get; set; }
+        [JsonPropertyName("content")] public Content? Content { get; }
     }
 
     private class Content
     {
-        [JsonPropertyName("parts")]
-        public List<Part>? Parts { get; set; }
+        [JsonPropertyName("parts")] public List<Part>? Parts { get; }
     }
 
     private class Part
     {
-        [JsonPropertyName("text")]
-        public string? Text { get; set; }
+        [JsonPropertyName("text")] public string? Text { get; }
     }
 }

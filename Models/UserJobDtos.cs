@@ -39,7 +39,7 @@ public class UserJobStatusCountDto
 
 public class UserJobStatusCountResponse
 {
-    public List<UserJobStatusCountDto> StatusCounts { get; set; } = new List<UserJobStatusCountDto>();
+    public List<UserJobStatusCountDto> StatusCounts { get; set; } = new();
     public int TotalJobsCount { get; set; }
     public int NewJobsCount { get; set; }
 }

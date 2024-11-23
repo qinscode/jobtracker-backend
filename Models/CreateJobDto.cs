@@ -12,4 +12,4 @@ public class CreateJobDto
     public string? Url { get; set; }
     public string? JobDescription { get; set; }
     public DateTime? PostedDate { get; set; }
-} 
+}

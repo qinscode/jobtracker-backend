@@ -34,4 +34,4 @@ public class AnalyzedEmailRepository : IAnalyzedEmailRepository
             .Select(ae => ae.ReceivedDate)
             .FirstOrDefaultAsync();
     }
-} 
+}
