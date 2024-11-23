@@ -140,3 +140,6 @@ k8s/
 /docker-compose.yml
 /Jenkinsfile
 /.env
+
+.DS_Store
+
