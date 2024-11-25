@@ -26,6 +26,8 @@ If the email is NOT job application-related, return an empty JSON object:
    - Company name (BusinessName)
    - Position title (JobTitle)
    - Application status (Status)
+   - Key Phrases (KeyPhrases)
+   - Suggested Actions (SuggestedActions)
 
 2. Application status must be one of the following categories:
    - Reviewed
@@ -35,11 +37,44 @@ If the email is NOT job application-related, return an empty JSON object:
    - Offered
    - Rejected
 
-3. Output must be in standard JSON format with the following fields:
+4. Key phrases should include:
+
+   - Important dates or deadlines
+   - Requirements or expectations
+   - Next steps mentioned
+   - Critical information about the process
+
+
+5. Suggested action should:
+
+   - Begin with an action verb (e.g., ""Wait"", ""Schedule"", ""Submit"", ""Prepare"")
+   - Be clear and concise (typically 2-10 words)
+   - Include timeline if mentioned in email (e.g., ""within 3 days"")
+   - Be specific to the current situation
+   - Focus on the next immediate action needed
+
+Common action patterns include but are not limited to:
+   - Wait for [timeline] response
+   - Schedule interview for [date/time]
+   - Submit required documents by [deadline]
+   - Prepare for [type] interview
+   - Complete [specific] assessment
+   - Follow up after [timeframe]
+   - Consider sending follow-up email
+   - Review and respond to offer
+   - Continue job search
+
+6. Output must be in standard JSON format with the following fields:
+Output:
 {
-    ""BusinessName"": """",
-    ""JobTitle"": """",
-    ""Status"": """"
+    ""BusinessName"": ""ByteDance"",
+    ""JobTitle"": ""Software Engineer"",
+    ""Status"": ""Reviewed"",
+    ""KeyPhrases"": [
+        ""application under review"",
+        ""response within 3-5 business days""
+    ],
+    ""SuggestedAction"": ""Wait for response within 5 business days""
 }
 
 
@@ -64,7 +99,9 @@ Output:
 {
     ""BusinessName"": ""ByteDance"",
     ""JobTitle"": ""Software Engineer"",
-    ""Status"": ""Reviewed""
+    ""Status"": ""Reviewed"",
+    ""KeyPhrases"": [""3-5 business days"", ""received your application""],
+    ""SuggestedActions"": ""Check your application status within 3-5 business days""
 }
 
 
@@ -91,6 +128,8 @@ Output:
 2. Company names should be extracted as complete legal names (when visible)
 3. Job titles should maintain the complete description from the original text
 4. Status should be determined based on clear indicators in the email content
+5. Key phrases should be extracted verbatim when possible
+6. Suggested actions should be specific and time-bound when applicable
 
 ## Important Notes
 

@@ -10,13 +10,16 @@ namespace JobTracker.Controllers;
 public class JobMatchingController : ControllerBase
 {
     private readonly IJobMatchingService _jobMatchingService;
+    private readonly IAIAnalysisService _aiAnalysisService;
     private readonly ILogger<JobMatchingController> _logger;
 
     public JobMatchingController(
         IJobMatchingService jobMatchingService,
+        IAIAnalysisService aiAnalysisService,
         ILogger<JobMatchingController> logger)
     {
         _jobMatchingService = jobMatchingService;
+        _aiAnalysisService = aiAnalysisService;
         _logger = logger;
     }
 
@@ -55,12 +58,52 @@ public class JobMatchingController : ControllerBase
             return StatusCode(500, new { message = "Error testing job match", error = ex.Message });
         }
     }
+
+    [HttpPost("test-analysis")]
+    public async Task<IActionResult> TestAnalysis([FromBody] EmailAnalysisTestRequest request)
+    {
+        try
+        {
+            var (companyName, jobTitle, status, keyPhrases, suggestedAction) =
+                await _aiAnalysisService.ExtractJobInfo(request.EmailContent);
+
+            return Ok(new EmailAnalysisTestResponse
+            {
+                CompanyName = companyName,
+                JobTitle = jobTitle,
+                Status = status.ToString(),
+                KeyPhrases = keyPhrases,
+                SuggestedAction = suggestedAction,
+                RawContent = request.EmailContent
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error testing email analysis");
+            return StatusCode(500, new { message = "Error testing email analysis", error = ex.Message });
+        }
+    }
 }
 
 public class JobMatchTestRequest
 {
     public string JobTitle { get; set; } = string.Empty;
     public string CompanyName { get; set; } = string.Empty;
+}
+
+public class EmailAnalysisTestRequest
+{
+    public string EmailContent { get; set; } = string.Empty;
+}
+
+public class EmailAnalysisTestResponse
+{
+    public string CompanyName { get; set; } = string.Empty;
+    public string JobTitle { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public List<string> KeyPhrases { get; set; } = new();
+    public string? SuggestedAction { get; set; }
+    public string RawContent { get; set; } = string.Empty;
 }
 
 public class JobMatchResponse

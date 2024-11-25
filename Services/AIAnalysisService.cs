@@ -70,18 +70,35 @@ public class AIAnalysisService : IAIAnalysisService
         }
     }
 
-    public async Task<(string CompanyName, string JobTitle, UserJobStatus Status)> ExtractJobInfo(string emailContent)
+    public async
+        Task<(string CompanyName, string JobTitle, UserJobStatus Status, List<string> KeyPhrases, string?
+            SuggestedAction)> ExtractJobInfo(string emailContent)
     {
         try
         {
             var jobInfo = await AnalyzeEmail(emailContent);
             var status = ParseJobStatus(jobInfo?.Status);
-            return (jobInfo?.BusinessName ?? "", jobInfo?.JobTitle ?? "", status);
+
+            _logger.LogInformation(
+                "Extracted job info - Company: {Company}, Title: {Title}, Status: {Status}, KeyPhrases: {KeyPhrases}, SuggestedAction: {SuggestedAction}",
+                jobInfo?.BusinessName,
+                jobInfo?.JobTitle,
+                status,
+                jobInfo?.KeyPhrases != null ? string.Join(", ", jobInfo.KeyPhrases) : "none",
+                jobInfo?.SuggestedAction ?? "none");
+
+            return (
+                jobInfo?.BusinessName ?? "",
+                jobInfo?.JobTitle ?? "",
+                status,
+                jobInfo?.KeyPhrases ?? new List<string>(),
+                jobInfo?.SuggestedAction
+            );
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error extracting job info");
-            return ("", "", UserJobStatus.Applied);
+            return ("", "", UserJobStatus.Applied, new List<string>(), null);
         }
     }
 
@@ -128,22 +145,36 @@ public class AIAnalysisService : IAIAnalysisService
             return null;
         }
 
-        // 清理 markdown 代码块标记和多余的空白
-        var jsonContent = result
-            .Replace("```json", "")
-            .Replace("```", "")
-            .Trim();
+        try
+        {
+            // 清理 markdown 代码块标记和多余的空白
+            var jsonContent = result
+                .Replace("```json", "")
+                .Replace("```", "")
+                .Trim();
 
-        _logger.LogInformation("Cleaned JSON content: {JsonContent}", jsonContent);
+            _logger.LogInformation("Cleaned JSON content: {JsonContent}", jsonContent);
 
-        var jobInfo = JsonSerializer.Deserialize<JobInfo>(jsonContent);
-        _logger.LogInformation(
-            "Deserialized JobInfo - BusinessName: {BusinessName}, JobTitle: {JobTitle}, Status: {Status}",
-            jobInfo?.BusinessName,
-            jobInfo?.JobTitle,
-            jobInfo?.Status);
+            var options = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            };
 
-        return jobInfo;
+            var jobInfo = JsonSerializer.Deserialize<JobInfo>(jsonContent, options);
+            _logger.LogInformation(
+                "Deserialized JobInfo - BusinessName: {BusinessName}, JobTitle: {JobTitle}, Status: {Status}, SuggestedAction: {SuggestedAction}",
+                jobInfo?.BusinessName,
+                jobInfo?.JobTitle,
+                jobInfo?.Status,
+                jobInfo?.SuggestedAction);
+
+            return jobInfo;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deserializing JSON content: {Content}", result);
+            throw;
+        }
     }
 
     private async Task<string> CallGeminiApiWithRetry(string content)
@@ -258,6 +289,10 @@ public class AIAnalysisService : IAIAnalysisService
         [JsonPropertyName("JobTitle")] public string? JobTitle { get; set; }
 
         [JsonPropertyName("Status")] public string? Status { get; set; }
+
+        [JsonPropertyName("KeyPhrases")] public List<string> KeyPhrases { get; set; } = new();
+
+        [JsonPropertyName("SuggestedAction")] public string? SuggestedAction { get; set; }
     }
 
     private class GeminiApiResponse

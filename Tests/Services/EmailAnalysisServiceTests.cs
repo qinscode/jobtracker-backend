@@ -16,7 +16,7 @@ public class EmailAnalysisServiceTests
     private readonly Mock<IUserJobRepository> _userJobRepositoryMock;
     private readonly Mock<IAnalyzedEmailRepository> _analyzedEmailRepositoryMock;
     private readonly Mock<ILogger<EmailAnalysisService>> _loggerMock;
-    private readonly EmailAnalysisService _service;
+    private readonly EmailAnalysisService _emailAnalysisService;
 
     public EmailAnalysisServiceTests()
     {
@@ -28,7 +28,7 @@ public class EmailAnalysisServiceTests
         _analyzedEmailRepositoryMock = new Mock<IAnalyzedEmailRepository>();
         _loggerMock = new Mock<ILogger<EmailAnalysisService>>();
 
-        _service = new EmailAnalysisService(
+        _emailAnalysisService = new EmailAnalysisService(
             _emailServiceMock.Object,
             _aiAnalysisServiceMock.Object,
             _jobMatchingServiceMock.Object,
@@ -40,72 +40,35 @@ public class EmailAnalysisServiceTests
     }
 
     [Fact]
-    public async Task AnalyzeRecentEmails_WhenJobExistsWithoutUserJob_ShouldCreateUserJob()
+    public async Task ProcessEmails_WithTechnicalAssessmentStatus_ShouldUpdateExistingUserJob()
     {
         // Arrange
         var config = new UserEmailConfig { Id = Guid.NewGuid(), UserId = Guid.NewGuid() };
         var email = new EmailMessage
         {
-            MessageId = "test1",
-            Subject = "Test Email",
-            Body = "Test Body",
-            ReceivedDate = DateTime.UtcNow,
-            Uid = 1
+            MessageId = "test123",
+            Subject = "Technical Assessment Invitation",
+            Body = "Please complete the assessment",
+            ReceivedDate = DateTime.UtcNow
         };
 
-        _emailServiceMock.Setup(x => x.FetchRecentEmailsAsync(config))
-            .ReturnsAsync(new[] { email });
-
-        var existingJob = new Job { Id = 1, JobTitle = "Developer", BusinessName = "Test Company" };
-
-        _aiAnalysisServiceMock.Setup(x => x.ExtractJobInfo(It.IsAny<string>()))
-            .ReturnsAsync(("Test Company", "Developer", UserJobStatus.TechnicalAssessment));
-
-        _jobMatchingServiceMock.Setup(x => x.FindMatchingJobAsync(It.IsAny<string>(), It.IsAny<string>()))
-            .ReturnsAsync((true, existingJob, 0.9));
-
-        _userJobRepositoryMock.Setup(x => x.GetUserJobByUserIdAndJobIdAsync(config.UserId, existingJob.Id))
-            .ReturnsAsync((UserJob?)null);
-
-        // Act
-        var result = await _service.AnalyzeRecentEmails(config);
-
-        // Assert
-        _userJobRepositoryMock.Verify(x => x.CreateUserJobAsync(
-            It.Is<UserJob>(uj =>
-                uj.UserId == config.UserId &&
-                uj.JobId == existingJob.Id &&
-                uj.Status == UserJobStatus.TechnicalAssessment)
-        ), Times.Once);
-    }
-
-    [Fact]
-    public async Task AnalyzeRecentEmails_WhenJobExistsWithUserJob_ShouldUpdateStatus()
-    {
-        // Arrange
-        var config = new UserEmailConfig { Id = Guid.NewGuid(), UserId = Guid.NewGuid() };
-        var email = new EmailMessage
-        {
-            MessageId = "test2",
-            Subject = "Test Email",
-            Body = "Test Body",
-            ReceivedDate = DateTime.UtcNow,
-            Uid = 2
-        };
-
-        _emailServiceMock.Setup(x => x.FetchRecentEmailsAsync(config))
-            .ReturnsAsync(new[] { email });
-
-        var existingJob = new Job { Id = 1, JobTitle = "Developer", BusinessName = "Test Company" };
+        var existingJob = new Job { Id = 1, JobTitle = "Software Engineer", BusinessName = "TestCo" };
         var existingUserJob = new UserJob
         {
+            Id = Guid.NewGuid(),
             UserId = config.UserId,
             JobId = existingJob.Id,
-            Status = UserJobStatus.Applied
+            Status = UserJobStatus.Interviewing
         };
 
         _aiAnalysisServiceMock.Setup(x => x.ExtractJobInfo(It.IsAny<string>()))
-            .ReturnsAsync(("Test Company", "Developer", UserJobStatus.Interviewing));
+            .ReturnsAsync((
+                "TestCo",
+                "Software Engineer",
+                UserJobStatus.TechnicalAssessment,
+                new List<string> { "assessment invitation", "coding test" },
+                "Complete technical assessment within 7 days"
+            ));
 
         _jobMatchingServiceMock.Setup(x => x.FindMatchingJobAsync(It.IsAny<string>(), It.IsAny<string>()))
             .ReturnsAsync((true, existingJob, 0.9));
@@ -114,155 +77,161 @@ public class EmailAnalysisServiceTests
             .ReturnsAsync(existingUserJob);
 
         // Act
-        var result = await _service.AnalyzeRecentEmails(config);
+        var results = await _emailAnalysisService.ProcessEmails(new[] { email }, config);
 
         // Assert
-        _userJobRepositoryMock.Verify(x => x.UpdateUserJobAsync(
-            It.Is<UserJob>(uj =>
-                uj.Status == UserJobStatus.Interviewing)
-        ), Times.Once);
+        Assert.Single(results);
+        Assert.True(results[0].IsRecognized);
+        Assert.Equal(UserJobStatus.TechnicalAssessment, results[0].Status);
+
+        _userJobRepositoryMock.Verify(
+            x => x.UpdateUserJobAsync(It.Is<UserJob>(j =>
+                j.Status == UserJobStatus.TechnicalAssessment)),
+            Times.Once);
     }
 
     [Fact]
-    public async Task AnalyzeRecentEmails_WhenJobDoesNotExist_ShouldCreateJobAndUserJob()
+    public async Task ProcessEmails_WithInterviewingStatus_ShouldCreateNewUserJob()
     {
         // Arrange
         var config = new UserEmailConfig { Id = Guid.NewGuid(), UserId = Guid.NewGuid() };
         var email = new EmailMessage
         {
-            MessageId = "test3",
-            Subject = "Test Email",
-            Body = "Test Body",
-            ReceivedDate = DateTime.UtcNow,
-            Uid = 3
+            MessageId = "test456",
+            Subject = "Interview Invitation",
+            Body = "We would like to invite you for an interview",
+            ReceivedDate = DateTime.UtcNow
         };
 
-        _emailServiceMock.Setup(x => x.FetchRecentEmailsAsync(config))
-            .ReturnsAsync(new[] { email });
-
-        var newJob = new Job { Id = 1, JobTitle = "Developer", BusinessName = "New Company" };
+        var newJob = new Job { Id = 2, JobTitle = "Developer", BusinessName = "NewCo" };
 
         _aiAnalysisServiceMock.Setup(x => x.ExtractJobInfo(It.IsAny<string>()))
-            .ReturnsAsync(("New Company", "Developer", UserJobStatus.Applied));
+            .ReturnsAsync((
+                "NewCo",
+                "Developer",
+                UserJobStatus.Interviewing,
+                new List<string> { "interview invitation", "next week" },
+                "Prepare for the interview"
+            ));
+
+        _jobMatchingServiceMock.Setup(x => x.FindMatchingJobAsync(It.IsAny<string>(), It.IsAny<string>()))
+            .ReturnsAsync((true, newJob, 0.8));
+
+        _userJobRepositoryMock.Setup(x => x.GetUserJobByUserIdAndJobIdAsync(config.UserId, newJob.Id))
+            .ReturnsAsync((UserJob?)null);
+
+        // Act
+        var results = await _emailAnalysisService.ProcessEmails(new[] { email }, config);
+
+        // Assert
+        Assert.Single(results);
+        Assert.True(results[0].IsRecognized);
+        Assert.Equal(UserJobStatus.Interviewing, results[0].Status);
+
+        _userJobRepositoryMock.Verify(
+            x => x.CreateUserJobAsync(It.Is<UserJob>(j =>
+                j.Status == UserJobStatus.Interviewing &&
+                j.JobId == newJob.Id)),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ProcessEmails_WithNoCompanyMatch_ShouldCreateNewJobAndUserJob()
+    {
+        // Arrange
+        var config = new UserEmailConfig { Id = Guid.NewGuid(), UserId = Guid.NewGuid() };
+        var email = new EmailMessage
+        {
+            MessageId = "test789",
+            Subject = "Application Received",
+            Body = "Thank you for your application",
+            ReceivedDate = DateTime.UtcNow
+        };
+
+        _aiAnalysisServiceMock.Setup(x => x.ExtractJobInfo(It.IsAny<string>()))
+            .ReturnsAsync((
+                "UnknownCo",
+                "Engineer",
+                UserJobStatus.Applied,
+                new List<string> { "application received", "will review" },
+                "Wait for response"
+            ));
 
         _jobMatchingServiceMock.Setup(x => x.FindMatchingJobAsync(It.IsAny<string>(), It.IsAny<string>()))
             .ReturnsAsync((false, null, 0.0));
 
+        var newJobId = 3;
         _jobRepositoryMock.Setup(x => x.CreateJobAsync(It.IsAny<Job>()))
-            .ReturnsAsync(newJob);
+            .ReturnsAsync((Job j) =>
+            {
+                j.Id = newJobId;
+                return j;
+            });
 
         // Act
-        var result = await _service.AnalyzeRecentEmails(config);
+        var results = await _emailAnalysisService.ProcessEmails(new[] { email }, config);
 
         // Assert
+        Assert.Single(results);
+        Assert.True(results[0].IsRecognized);
+        Assert.Equal(UserJobStatus.Applied, results[0].Status);
+
         _jobRepositoryMock.Verify(x => x.CreateJobAsync(It.IsAny<Job>()), Times.Once);
-        _userJobRepositoryMock.Verify(x => x.CreateUserJobAsync(
-            It.Is<UserJob>(uj =>
-                uj.UserId == config.UserId &&
-                uj.JobId == newJob.Id &&
-                uj.Status == UserJobStatus.Applied)
-        ), Times.Once);
+        _userJobRepositoryMock.Verify(
+            x => x.CreateUserJobAsync(It.Is<UserJob>(j =>
+                j.Status == UserJobStatus.Applied &&
+                j.JobId == newJobId)),
+            Times.Once);
     }
 
     [Fact]
-    public async Task AnalyzeRecentEmails_WhenStatusIsRejected_ShouldAlwaysUpdateStatus()
+    public async Task ProcessEmails_WithRejectionStatus_ShouldUpdateStatus()
     {
         // Arrange
         var config = new UserEmailConfig { Id = Guid.NewGuid(), UserId = Guid.NewGuid() };
         var email = new EmailMessage
         {
-            MessageId = "test4",
-            Subject = "Test Email",
-            Body = "Test Body",
-            ReceivedDate = DateTime.UtcNow,
-            Uid = 4
+            MessageId = "test101",
+            Subject = "Application Status Update",
+            Body = "We regret to inform you",
+            ReceivedDate = DateTime.UtcNow
         };
 
-        _emailServiceMock.Setup(x => x.FetchRecentEmailsAsync(config))
-            .ReturnsAsync(new[] { email });
-
-        var existingJob = new Job { Id = 1, JobTitle = "Developer", BusinessName = "Test Company" };
+        var existingJob = new Job { Id = 4, JobTitle = "Senior Developer", BusinessName = "RejectCo" };
         var existingUserJob = new UserJob
         {
+            Id = Guid.NewGuid(),
             UserId = config.UserId,
             JobId = existingJob.Id,
-            Status = UserJobStatus.Interviewing // 即使是高级状态
+            Status = UserJobStatus.Interviewing
         };
 
         _aiAnalysisServiceMock.Setup(x => x.ExtractJobInfo(It.IsAny<string>()))
-            .ReturnsAsync(("Test Company", "Developer", UserJobStatus.Rejected));
+            .ReturnsAsync((
+                "RejectCo",
+                "Senior Developer",
+                UserJobStatus.Rejected,
+                new List<string> { "regret to inform", "other candidates" },
+                "Consider other opportunities"
+            ));
 
         _jobMatchingServiceMock.Setup(x => x.FindMatchingJobAsync(It.IsAny<string>(), It.IsAny<string>()))
-            .ReturnsAsync((true, existingJob, 0.9));
+            .ReturnsAsync((true, existingJob, 0.95));
 
         _userJobRepositoryMock.Setup(x => x.GetUserJobByUserIdAndJobIdAsync(config.UserId, existingJob.Id))
             .ReturnsAsync(existingUserJob);
 
         // Act
-        var result = await _service.AnalyzeRecentEmails(config);
+        var results = await _emailAnalysisService.ProcessEmails(new[] { email }, config);
 
         // Assert
-        _userJobRepositoryMock.Verify(x => x.UpdateUserJobAsync(
-            It.Is<UserJob>(uj =>
-                uj.Status == UserJobStatus.Rejected)
-        ), Times.Once);
-    }
+        Assert.Single(results);
+        Assert.True(results[0].IsRecognized);
+        Assert.Equal(UserJobStatus.Rejected, results[0].Status);
 
-    [Fact]
-    public async Task AnalyzeRecentEmails_WhenEmailAlreadyAnalyzed_ShouldSkip()
-    {
-        // Arrange
-        var config = new UserEmailConfig { Id = Guid.NewGuid(), UserId = Guid.NewGuid() };
-        var email = new EmailMessage
-        {
-            MessageId = "test5",
-            Subject = "Test Email",
-            Body = "Test Body",
-            ReceivedDate = DateTime.UtcNow,
-            Uid = 5
-        };
-
-        _emailServiceMock.Setup(x => x.FetchRecentEmailsAsync(config))
-            .ReturnsAsync(new[] { email });
-
-        _analyzedEmailRepositoryMock.Setup(x => x.ExistsAsync(config.Id, email.MessageId))
-            .ReturnsAsync(true);
-
-        // Act
-        var result = await _service.AnalyzeRecentEmails(config);
-
-        // Assert
-        _aiAnalysisServiceMock.Verify(x => x.ExtractJobInfo(It.IsAny<string>()), Times.Never);
-        Assert.Empty(result);
-    }
-
-    [Fact]
-    public async Task AnalyzeRecentEmails_WhenNoCompanyName_ShouldSkipJobProcessing()
-    {
-        // Arrange
-        var config = new UserEmailConfig { Id = Guid.NewGuid(), UserId = Guid.NewGuid() };
-        var email = new EmailMessage
-        {
-            MessageId = "test6",
-            Subject = "Test Email",
-            Body = "Test Body",
-            ReceivedDate = DateTime.UtcNow,
-            Uid = 6
-        };
-
-        _emailServiceMock.Setup(x => x.FetchRecentEmailsAsync(config))
-            .ReturnsAsync(new[] { email });
-
-        _aiAnalysisServiceMock.Setup(x => x.ExtractJobInfo(It.IsAny<string>()))
-            .ReturnsAsync(("", "Developer", UserJobStatus.Applied));
-
-        // Act
-        var result = await _service.AnalyzeRecentEmails(config);
-
-        // Assert
-        _jobMatchingServiceMock.Verify(x => x.FindMatchingJobAsync(It.IsAny<string>(), It.IsAny<string>()),
-            Times.Never);
-        Assert.Single(result);
-        Assert.False(result[0].IsRecognized);
+        _userJobRepositoryMock.Verify(
+            x => x.UpdateUserJobAsync(It.Is<UserJob>(j =>
+                j.Status == UserJobStatus.Rejected)),
+            Times.Once);
     }
 }

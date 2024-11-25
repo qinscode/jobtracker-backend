@@ -37,7 +37,6 @@ public class JobTrackerContext : DbContext
             .Property(u => u.UpdatedAt)
             .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
-
         // UserJob configuration
         modelBuilder.Entity<UserJob>()
             .Property(uj => uj.Status)
@@ -81,5 +80,11 @@ public class JobTrackerContext : DbContext
             .HasOne(ae => ae.MatchedJob)
             .WithMany()
             .HasForeignKey(ae => ae.MatchedJobId);
+
+        // 配置 KeyPhrases 为数组类型
+        modelBuilder.Entity<AnalyzedEmail>()
+            .Property(e => e.KeyPhrases)
+            .HasColumnType("text[]")
+            .HasDefaultValue(Array.Empty<string>());
     }
 }

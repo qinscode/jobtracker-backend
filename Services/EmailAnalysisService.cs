@@ -102,7 +102,6 @@ public class EmailAnalysisService : IEmailAnalysisService
 
         foreach (var email in emails)
         {
-            // 检查是否已经分析过这封邮件
             if (await _analyzedEmailRepository.ExistsAsync(config.Id, email.MessageId))
             {
                 _logger.LogInformation("Skipping already analyzed email: {Subject}", email.Subject);
@@ -111,8 +110,8 @@ public class EmailAnalysisService : IEmailAnalysisService
 
             try
             {
-                var (companyName, jobTitle, status) = await _aiAnalysisService.ExtractJobInfo(email.Body);
-                var isRejection = status == UserJobStatus.Rejected;
+                var (companyName, jobTitle, status, keyPhrases, suggestedAction) =
+                    await _aiAnalysisService.ExtractJobInfo(email.Body);
 
                 // 创建基本的分析结果
                 var analysisResult = new EmailAnalysisDto
@@ -120,7 +119,9 @@ public class EmailAnalysisService : IEmailAnalysisService
                     Subject = email.Subject,
                     ReceivedDate = email.ReceivedDate,
                     IsRecognized = false,
-                    Status = status
+                    Status = status,
+                    KeyPhrases = keyPhrases,
+                    SuggestedAction = suggestedAction
                 };
 
                 Job? matchedJob = null;
@@ -182,7 +183,9 @@ public class EmailAnalysisService : IEmailAnalysisService
                             Subject = email.Subject,
                             ReceivedDate = email.ReceivedDate,
                             MatchedJobId = job.Id,
-                            Uid = email.Uid
+                            Uid = email.Uid,
+                            KeyPhrases = keyPhrases.ToArray(),
+                            SuggestedAction = suggestedAction
                         };
                         await _analyzedEmailRepository.CreateAsync(analyzedEmail);
 
@@ -233,7 +236,9 @@ public class EmailAnalysisService : IEmailAnalysisService
                                 Subject = email.Subject,
                                 ReceivedDate = email.ReceivedDate,
                                 MatchedJobId = newJob.Id,
-                                Uid = email.Uid
+                                Uid = email.Uid,
+                                KeyPhrases = keyPhrases.ToArray(),
+                                SuggestedAction = suggestedAction
                             };
                             await _analyzedEmailRepository.CreateAsync(analyzedEmail);
 

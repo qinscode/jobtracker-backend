@@ -20,4 +20,7 @@ public class AnalyzedEmail
     [ForeignKey("MatchedJobId")] public Job? MatchedJob { get; set; }
 
     public uint? Uid { get; set; }
+
+    public string[] KeyPhrases { get; set; } = Array.Empty<string>();
+    public string? SuggestedAction { get; set; }
 }

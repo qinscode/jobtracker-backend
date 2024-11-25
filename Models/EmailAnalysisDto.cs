@@ -7,6 +7,8 @@ public class EmailAnalysisDto
     public bool IsRecognized { get; set; }
     public JobBasicInfo? Job { get; set; }
     public UserJobStatus Status { get; set; }
+    public List<string> KeyPhrases { get; set; } = new();
+    public string? SuggestedAction { get; set; }
 }
 
 public class JobBasicInfo
