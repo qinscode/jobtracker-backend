@@ -89,7 +89,7 @@ builder.Services.AddScoped<IEmailAnalysisService, EmailAnalysisService>();
 
 // Register services
 builder.Services.AddScoped<IJobMatchingService, JobMatchingService>();
-
+builder.Services.AddScoped<IJobMergeService, JobMergeService>();
 
 var app = builder.Build();
 
@@ -103,6 +103,5 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-
 
 app.Run();

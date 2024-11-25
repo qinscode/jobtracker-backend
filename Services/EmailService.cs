@@ -135,8 +135,8 @@ public class EmailService : IEmailService
         return messages;
     }
 
-    public async Task<IEnumerable<EmailMessage>> FetchIncrementalEmailsAsync(
-        UserEmailConfig config, uint? lastUid = null)
+    public async Task<IEnumerable<EmailMessage>> FetchIncrementalEmailsAsync(UserEmailConfig config,
+        uint? lastUid = null)
     {
         var messages = new List<EmailMessage>();
 
@@ -149,25 +149,45 @@ public class EmailService : IEmailService
                 var inbox = emailClient.Inbox;
                 await inbox.OpenAsync(FolderAccess.ReadOnly);
 
-                var query = lastUid.HasValue
-                    ? SearchQuery.Uids(new[] { new UniqueId(lastUid.Value + 1, uint.MaxValue) })
-                    : SearchQuery.All;
+                // 获取最后分析的日期
+                var lastAnalyzedDate = await _analyzedEmailRepository.GetLastAnalyzedDateAsync(config.Id);
+
+                // 构建查询
+                SearchQuery query;
+                if (lastAnalyzedDate.HasValue)
+                {
+                    // 转换为UTC时间，并往前推1小时以确保不会遗漏
+                    var searchDate = TimeZoneInfo.ConvertTimeToUtc(lastAnalyzedDate.Value)
+                        .AddHours(-1);
+
+                    query = SearchQuery.SentSince(searchDate);
+                    _logger.LogInformation(
+                        "Searching for emails sent since: {SearchDate} (UTC)",
+                        searchDate);
+                }
+                else
+                {
+                    query = SearchQuery.All;
+                    _logger.LogInformation("No last analyzed date found, searching all emails");
+                }
 
                 var uids = await inbox.SearchAsync(query);
+                _logger.LogInformation("Found {Count} new emails", uids.Count);
+
                 if (!uids.Any())
                 {
                     _logger.LogInformation("No new emails found for {Email}", config.EmailAddress);
                     return;
                 }
 
-                var processedMessageIds = await _analyzedEmailRepository
-                    .GetProcessedMessageIdsAsync(config.Id);
+                // 获取已处理的消息ID
+                var processedMessageIds = await _analyzedEmailRepository.GetProcessedMessageIdsAsync(config.Id);
                 _logger.LogInformation(
                     "Found {Count} previously processed messages",
                     processedMessageIds.Count);
 
-                foreach (var uidBatch in uids.OrderBy(x => x.Id)
-                             .Chunk(_config.Gmail.BatchSize))
+                // 按批次处理邮件
+                foreach (var uidBatch in uids.OrderBy(x => x.Id).Chunk(_config.Gmail.BatchSize))
                 {
                     try
                     {
@@ -177,15 +197,24 @@ public class EmailService : IEmailService
                             {
                                 var message = await inbox.GetMessageAsync(uid);
 
-                                // 使用内存中的集合进行检查，避免频繁的数据库查询
+                                _logger.LogDebug(
+                                    "Processing message - UID: {Uid}, Subject: {Subject}, MessageId: {MessageId}, Date: {Date}",
+                                    uid, message.Subject, message.MessageId, message.Date);
+
                                 if (processedMessageIds.Contains(message.MessageId))
                                 {
-                                    _logger.LogDebug("Skipping already processed message: {MessageId}",
+                                    _logger.LogDebug(
+                                        "Skipping already processed message: {MessageId}",
                                         message.MessageId);
                                     continue;
                                 }
 
                                 await ProcessEmailMessage(message, messages, uid);
+
+                                _logger.LogInformation(
+                                    "Successfully processed email - UID: {Uid}, Subject: {Subject}, Date: {Date}",
+                                    uid, message.Subject, message.Date);
+
                                 await Task.Delay(100);
                             }
                             catch (MessageNotFoundException ex)

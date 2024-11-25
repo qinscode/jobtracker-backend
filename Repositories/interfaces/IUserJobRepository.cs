@@ -41,4 +41,6 @@ public interface IUserJobRepository
     Task<IEnumerable<WorkTypeCountDto>> GetWorkTypeCountsAsync(Guid userId);
 
     Task<IEnumerable<SuburbCountDto>> GetSuburbCountsAsync(Guid userId);
+
+    Task<List<UserJob>> GetUserJobsByJobIdAsync(int jobId);
 }

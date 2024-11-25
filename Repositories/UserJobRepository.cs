@@ -310,4 +310,11 @@ public class UserJobRepository : IUserJobRepository
             .Include(uj => uj.Job)
             .ToListAsync();
     }
+
+    public async Task<List<UserJob>> GetUserJobsByJobIdAsync(int jobId)
+    {
+        return await _context.UserJobs
+            .Where(uj => uj.JobId == jobId)
+            .ToListAsync();
+    }
 }

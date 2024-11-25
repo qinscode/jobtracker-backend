@@ -59,4 +59,17 @@ public class AnalyzedEmailRepository : IAnalyzedEmailRepository
 
         return new HashSet<string>(messageIds);
     }
+
+    public async Task<List<AnalyzedEmail>> GetEmailsByJobIdAsync(int jobId)
+    {
+        return await _context.AnalyzedEmails
+            .Where(ae => ae.MatchedJobId == jobId)
+            .ToListAsync();
+    }
+
+    public async Task UpdateAsync(AnalyzedEmail analyzedEmail)
+    {
+        _context.Entry(analyzedEmail).State = EntityState.Modified;
+        await _context.SaveChangesAsync();
+    }
 }
