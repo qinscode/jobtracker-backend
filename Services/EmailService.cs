@@ -15,7 +15,7 @@ public class EmailService : IEmailService
 {
     private const int MaxRetries = 3;
     private const int TimeoutSeconds = 30;
-    private const int MaxEmailsToScan = 50;
+    private const int MaxEmailsToScan = 5;
     private static readonly TimeZoneInfo PerthTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Australia/Perth");
     private readonly IAnalyzedEmailRepository _analyzedEmailRepository;
     private readonly ILogger<EmailService> _logger;
@@ -53,12 +53,6 @@ public class EmailService : IEmailService
             }
         });
     }
-
-    // 删除或注释掉 StartEmailMonitoringAsync 方法，因为我们现在使用后台服务
-    // public async Task StartEmailMonitoringAsync(UserEmailConfig config, CancellationToken cancellationToken)
-    // {
-    //     // ... 
-    // }
 
     // 扫描最近的50封邮件
     public async Task<IEnumerable<EmailMessage>> FetchRecentEmailsAsync(UserEmailConfig config)
@@ -126,66 +120,6 @@ public class EmailService : IEmailService
         return messages;
     }
 
-    public async Task<IEnumerable<EmailMessage>> FetchNewEmailsAsync(UserEmailConfig config)
-    {
-        var messages = new List<EmailMessage>();
-        var lastAnalyzedDate = await _analyzedEmailRepository.GetLastAnalyzedDateAsync(config.Id);
-
-        await _retryPolicy.ExecuteAsync(async () =>
-        {
-            using var emailClient = new ImapClient();
-            try
-            {
-                await ConnectWithTimeout(emailClient, config);
-                var inbox = emailClient.Inbox;
-                await inbox.OpenAsync(FolderAccess.ReadOnly);
-
-                // 如果有上次分析的时间，只获取之后的邮件
-                var query = SearchQuery.All;
-                if (lastAnalyzedDate.HasValue) query = SearchQuery.DeliveredAfter(lastAnalyzedDate.Value);
-
-                // 获取符合条件的邮件索引
-                var indexes = await inbox.SearchAsync(query);
-
-                // 按时间倒序排序
-                var sortedIndexes = indexes.OrderByDescending(x => x);
-
-                foreach (var i in sortedIndexes.Take(MaxEmailsToScan))
-                    try
-                    {
-                        var message = await inbox.GetMessageAsync(i);
-                        var textBody = message.TextBody ?? message.HtmlBody;
-
-                        if (!string.IsNullOrEmpty(textBody))
-                        {
-                            messages.Add(new EmailMessage
-                            {
-                                MessageId = message.MessageId,
-                                Subject = message.Subject,
-                                Body = textBody,
-                                ReceivedDate = TimeZoneInfo.ConvertTimeFromUtc(message.Date.UtcDateTime, PerthTimeZone)
-                            });
-
-
-                            _logger.LogDebug("Successfully processed email with subject: {Subject}",
-                                message.Subject);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error processing email at index {Index} for {Email}",
-                            i, config.EmailAddress);
-                    }
-            }
-            finally
-            {
-                if (emailClient.IsConnected) await emailClient.DisconnectAsync(true);
-            }
-        });
-
-        _logger.LogInformation("Completed fetching {Count} emails for {Email}", messages.Count, config.EmailAddress);
-        return messages;
-    }
 
     private async Task ConnectWithTimeout(ImapClient client, UserEmailConfig config)
     {

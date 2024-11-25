@@ -50,23 +50,6 @@ public class EmailAnalysisService : IEmailAnalysisService
         }
     }
 
-    public async Task<List<EmailAnalysisDto>> AnalyzeNewEmails(UserEmailConfig config, DateTime? since = null)
-    {
-        _logger.LogInformation("Starting to analyze new emails for {Email} since {Date}",
-            config.EmailAddress, since?.ToString() ?? "beginning");
-        var results = new List<EmailAnalysisDto>();
-
-        try
-        {
-            var emails = await _emailService.FetchNewEmailsAsync(config, since);
-            return await ProcessEmails(emails, config);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error during new email analysis for {Email}", config.EmailAddress);
-            throw;
-        }
-    }
 
     public async Task<bool> IsRejectionEmail(string emailContent)
     {
