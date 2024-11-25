@@ -184,7 +184,7 @@ public class JobRepository : IJobRepository
         var jobCounts = await _context.Jobs
             .Where(j => j.PostedDate.HasValue &&
                         j.PostedDate.Value.Date >= startDate)
-            .GroupBy(j => j.PostedDate.Value.Date)
+            .GroupBy(j => j.PostedDate!.Value.Date)
             .Select(g => new { Date = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.Date, x => x.Count);
 
@@ -230,10 +230,10 @@ public class JobRepository : IJobRepository
         for (var date = startDate; date <= endDate; date = date.AddDays(1))
         {
             var activeJobs = jobs.Count(j =>
-                j.PostedDate.Value.Date <= date &&
+                j.PostedDate!.Value.Date <= date &&
                 (j.ExpiryDate == null || j.ExpiryDate.Value.Date > date));
 
-            var newJobs = jobs.Count(j => j.PostedDate.Value.Date == date);
+            var newJobs = jobs.Count(j => j.PostedDate!.Value.Date == date);
 
             statistics.Add(new DailyJobStatistics
             {
