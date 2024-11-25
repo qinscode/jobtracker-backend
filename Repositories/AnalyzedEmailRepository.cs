@@ -92,4 +92,60 @@ public class AnalyzedEmailRepository : IAnalyzedEmailRepository
 
         return (emails, totalCount);
     }
+
+    public async Task<(List<AnalyzedEmail> Emails, int TotalCount)> SearchAnalyzedEmailsAsync(
+        Guid userId,
+        string searchTerm,
+        int pageNumber,
+        int pageSize)
+    {
+        var query = _context.AnalyzedEmails
+            .Include(ae => ae.MatchedJob)
+            .Include(ae => ae.UserEmailConfig)
+            .Where(ae => ae.UserEmailConfig!.UserId == userId);
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            searchTerm = searchTerm.ToLower();
+            // 获取所有可能匹配的邮件
+            var allMatchingEmails = await query
+                .Where(ae =>
+                    EF.Functions.ILike(ae.Subject, $"%{searchTerm}%") ||
+                    (ae.MatchedJob != null && (
+                        EF.Functions.ILike(ae.MatchedJob.JobTitle ?? "", $"%{searchTerm}%") ||
+                        EF.Functions.ILike(ae.MatchedJob.BusinessName ?? "", $"%{searchTerm}%")
+                    ))
+                )
+                .ToListAsync();
+
+            // 在内存中过滤包括关键短语的结果
+            var filteredEmails = allMatchingEmails
+                .Concat(allMatchingEmails.Where(e =>
+                    e.KeyPhrases != null &&
+                    e.KeyPhrases.Any(kp => kp.ToLower().Contains(searchTerm))))
+                .Distinct()
+                .OrderByDescending(e => e.ReceivedDate)
+                .ToList();
+
+            // 应用分页
+            var pagedEmails = filteredEmails
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+
+            return (pagedEmails, filteredEmails.Count);
+        }
+        else
+        {
+            // 如果没有搜索词，直接返回分页结果
+            var totalCount = await query.CountAsync();
+            var emails = await query
+                .OrderByDescending(ae => ae.ReceivedDate)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return (emails, totalCount);
+        }
+    }
 }

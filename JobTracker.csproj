@@ -45,7 +45,6 @@
         <Compile Remove="Repositories\interfaces\IEmailAccountRepository.cs"/>
         <Compile Remove="Repositories\EmailAccountRepository.cs"/>
         <Compile Remove="Models\EmailAccount.cs"/>
-        <Compile Remove="Controllers\EmailAnalysisController.cs"/>
         <Compile Remove="Controllers\EmailAccountsController.cs"/>
     </ItemGroup>
 

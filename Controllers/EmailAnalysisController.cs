@@ -1,8 +1,8 @@
+using System.IdentityModel.Tokens.Jwt;
 using JobTracker.Models;
 using JobTracker.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.IdentityModel.Tokens.Jwt;
 
 namespace JobTracker.Controllers;
 
@@ -33,7 +33,7 @@ public class EmailAnalysisController : ControllerBase
         try
         {
             var userId = GetUserIdFromToken();
-            
+
             // 获取用户的邮件配置
             var configs = await _userEmailConfigRepository.GetByUserIdAsync(userId);
             if (!configs.Any())
@@ -64,12 +64,14 @@ public class EmailAnalysisController : ControllerBase
                 Subject = e.Subject,
                 ReceivedDate = e.ReceivedDate,
                 IsRecognized = e.MatchedJob != null,
-                Job = e.MatchedJob == null ? null : new JobBasicInfo
-                {
-                    Id = e.MatchedJob.Id,
-                    JobTitle = e.MatchedJob.JobTitle ?? string.Empty,
-                    BusinessName = e.MatchedJob.BusinessName ?? string.Empty
-                },
+                Job = e.MatchedJob == null
+                    ? null
+                    : new JobBasicInfo
+                    {
+                        Id = e.MatchedJob.Id,
+                        JobTitle = e.MatchedJob.JobTitle ?? string.Empty,
+                        BusinessName = e.MatchedJob.BusinessName ?? string.Empty
+                    },
                 KeyPhrases = e.KeyPhrases.ToList(),
                 SuggestedActions = e.SuggestedActions,
                 Similarity = e.Similarity
@@ -99,7 +101,7 @@ public class EmailAnalysisController : ControllerBase
         try
         {
             var userId = GetUserIdFromToken();
-            
+
             // 验证邮件配置属于当前用户
             var config = await _userEmailConfigRepository.GetByIdAsync(configId);
             if (config == null || config.UserId != userId)
@@ -115,12 +117,14 @@ public class EmailAnalysisController : ControllerBase
                 Subject = e.Subject,
                 ReceivedDate = e.ReceivedDate,
                 IsRecognized = e.MatchedJob != null,
-                Job = e.MatchedJob == null ? null : new JobBasicInfo
-                {
-                    Id = e.MatchedJob.Id,
-                    JobTitle = e.MatchedJob.JobTitle ?? string.Empty,
-                    BusinessName = e.MatchedJob.BusinessName ?? string.Empty
-                },
+                Job = e.MatchedJob == null
+                    ? null
+                    : new JobBasicInfo
+                    {
+                        Id = e.MatchedJob.Id,
+                        JobTitle = e.MatchedJob.JobTitle ?? string.Empty,
+                        BusinessName = e.MatchedJob.BusinessName ?? string.Empty
+                    },
                 KeyPhrases = e.KeyPhrases.ToList(),
                 SuggestedActions = e.SuggestedActions,
                 Similarity = e.Similarity
@@ -138,6 +142,52 @@ public class EmailAnalysisController : ControllerBase
         {
             _logger.LogError(ex, "Error getting analyzed emails for config {ConfigId}", configId);
             return StatusCode(500, "An error occurred while retrieving analyzed emails");
+        }
+    }
+
+    [HttpGet("search")]
+    public async Task<ActionResult<EmailAnalysisResponseDto>> SearchAnalyzedEmails(
+        [FromQuery] string searchTerm,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10)
+    {
+        try
+        {
+            var userId = GetUserIdFromToken();
+
+            var (emails, totalCount) = await _analyzedEmailRepository.SearchAnalyzedEmailsAsync(
+                userId, searchTerm, pageNumber, pageSize);
+
+            var emailDtos = emails.Select(e => new EmailAnalysisDto
+            {
+                Subject = e.Subject,
+                ReceivedDate = e.ReceivedDate,
+                IsRecognized = e.MatchedJob != null,
+                Job = e.MatchedJob == null
+                    ? null
+                    : new JobBasicInfo
+                    {
+                        Id = e.MatchedJob.Id,
+                        JobTitle = e.MatchedJob.JobTitle ?? string.Empty,
+                        BusinessName = e.MatchedJob.BusinessName ?? string.Empty
+                    },
+                KeyPhrases = e.KeyPhrases.ToList(),
+                SuggestedActions = e.SuggestedActions,
+                Similarity = e.Similarity
+            }).ToList();
+
+            return Ok(new EmailAnalysisResponseDto
+            {
+                Emails = emailDtos,
+                TotalCount = totalCount,
+                PageNumber = pageNumber,
+                PageSize = pageSize
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error searching analyzed emails with term: {SearchTerm}", searchTerm);
+            return StatusCode(500, "An error occurred while searching analyzed emails");
         }
     }
 
@@ -163,4 +213,4 @@ public class EmailAnalysisResponseDto
     public int TotalCount { get; set; }
     public int PageNumber { get; set; }
     public int PageSize { get; set; }
-} 
+}

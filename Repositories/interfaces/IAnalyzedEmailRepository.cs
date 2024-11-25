@@ -17,4 +17,10 @@ public interface IAnalyzedEmailRepository
         Guid userEmailConfigId,
         int pageNumber,
         int pageSize);
+
+    Task<(List<AnalyzedEmail> Emails, int TotalCount)> SearchAnalyzedEmailsAsync(
+        Guid userId,
+        string searchTerm,
+        int pageNumber,
+        int pageSize);
 }
