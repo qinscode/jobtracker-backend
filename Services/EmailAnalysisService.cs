@@ -95,7 +95,8 @@ public class EmailAnalysisService : IEmailAnalysisService
         }
     }
 
-    private async Task<List<EmailAnalysisDto>> ProcessEmails(IEnumerable<EmailMessage> emails, UserEmailConfig config)
+    protected internal async Task<List<EmailAnalysisDto>> ProcessEmails(IEnumerable<EmailMessage> emails,
+        UserEmailConfig config)
     {
         var results = new List<EmailAnalysisDto>();
 
