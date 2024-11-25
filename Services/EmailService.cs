@@ -134,7 +134,7 @@ public class EmailService : IEmailService
         uint? lastUid = null)
     {
         var messages = new List<EmailMessage>();
-        var batchSize = 100; // 每批处理的邮件数量
+        var batchSize = 100;
 
         await _retryPolicy.ExecuteAsync(async () =>
         {
@@ -145,7 +145,6 @@ public class EmailService : IEmailService
                 var inbox = emailClient.Inbox;
                 await inbox.OpenAsync(FolderAccess.ReadOnly);
 
-                // 获取所有UID
                 var query = lastUid.HasValue
                     ? SearchQuery.Uids(new[] { new UniqueId(lastUid.Value + 1, uint.MaxValue) })
                     : SearchQuery.All;
@@ -157,33 +156,41 @@ public class EmailService : IEmailService
                     return;
                 }
 
+                // 预先获取所有已分析过的 MessageId
+                var processedMessageIds = await _analyzedEmailRepository.GetProcessedMessageIdsAsync(config.Id);
+                _logger.LogInformation("Found {Count} previously processed messages", processedMessageIds.Count);
+
                 // 按批次处理邮件
                 foreach (var uidBatch in uids.OrderBy(x => x.Id).Chunk(batchSize))
                 {
                     try
                     {
                         foreach (var uid in uidBatch)
+                        {
                             try
                             {
                                 var message = await inbox.GetMessageAsync(uid);
 
-                                // 检查是否已经分析过
-                                if (await _analyzedEmailRepository.ExistsAsync(config.Id, message.MessageId)) continue;
+                                // 使用内存中的集合进行检查，避免频繁的数据库查询
+                                if (processedMessageIds.Contains(message.MessageId))
+                                {
+                                    _logger.LogDebug("Skipping already processed message: {MessageId}",
+                                        message.MessageId);
+                                    continue;
+                                }
 
                                 await ProcessEmailMessage(message, messages, uid);
-
-                                // 短暂暂停，避免过度消耗资源
                                 await Task.Delay(100);
                             }
                             catch (MessageNotFoundException ex)
                             {
                                 _logger.LogWarning(ex, "Message with UID {Uid} not found", uid);
                             }
+                        }
                     }
                     catch (Exception ex)
                     {
                         _logger.LogError(ex, "Error processing batch of emails");
-                        // 继续处理下一批，而不是完全中断
                         continue;
                     }
 

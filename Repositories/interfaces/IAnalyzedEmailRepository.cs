@@ -9,4 +9,5 @@ public interface IAnalyzedEmailRepository
     Task<DateTime?> GetLastAnalyzedDateAsync(Guid userEmailConfigId);
     Task<uint?> GetLastAnalyzedUidAsync(Guid userEmailConfigId);
     Task CreateManyAsync(IEnumerable<AnalyzedEmail> analyzedEmails);
+    Task<HashSet<string>> GetProcessedMessageIdsAsync(Guid userEmailConfigId);
 }

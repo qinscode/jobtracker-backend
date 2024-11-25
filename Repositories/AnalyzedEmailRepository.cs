@@ -49,4 +49,14 @@ public class AnalyzedEmailRepository : IAnalyzedEmailRepository
             .Select(ae => ae.Uid)
             .FirstOrDefaultAsync();
     }
+
+    public async Task<HashSet<string>> GetProcessedMessageIdsAsync(Guid userEmailConfigId)
+    {
+        var messageIds = await _context.AnalyzedEmails
+            .Where(ae => ae.UserEmailConfigId == userEmailConfigId)
+            .Select(ae => ae.MessageId)
+            .ToListAsync();
+
+        return new HashSet<string>(messageIds);
+    }
 }
