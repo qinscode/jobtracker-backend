@@ -20,6 +20,12 @@ public class AnalyzedEmailRepository : IAnalyzedEmailRepository
         return analyzedEmail;
     }
 
+    public async Task CreateManyAsync(IEnumerable<AnalyzedEmail> analyzedEmails)
+    {
+        await _context.AnalyzedEmails.AddRangeAsync(analyzedEmails);
+        await _context.SaveChangesAsync();
+    }
+
     public async Task<bool> ExistsAsync(Guid userEmailConfigId, string messageId)
     {
         return await _context.AnalyzedEmails
@@ -33,5 +39,24 @@ public class AnalyzedEmailRepository : IAnalyzedEmailRepository
             .OrderByDescending(ae => ae.ReceivedDate)
             .Select(ae => ae.ReceivedDate)
             .FirstOrDefaultAsync();
+    }
+
+    public async Task<uint?> GetLastAnalyzedUidAsync(Guid userEmailConfigId)
+    {
+        return await _context.AnalyzedEmails
+            .Where(ae => ae.UserEmailConfigId == userEmailConfigId && ae.Uid != null)
+            .OrderByDescending(ae => ae.Uid)
+            .Select(ae => ae.Uid)
+            .FirstOrDefaultAsync();
+    }
+
+    public async Task<HashSet<string>> GetProcessedMessageIdsAsync(Guid userEmailConfigId)
+    {
+        var messageIds = await _context.AnalyzedEmails
+            .Where(ae => ae.UserEmailConfigId == userEmailConfigId)
+            .Select(ae => ae.MessageId)
+            .ToListAsync();
+
+        return new HashSet<string>(messageIds);
     }
 }

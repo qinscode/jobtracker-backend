@@ -15,7 +15,7 @@ public class EmailService : IEmailService
 {
     private const int MaxRetries = 3;
     private const int TimeoutSeconds = 30;
-    private const int MaxEmailsToScan = 50;
+    private const int MaxEmailsToScan = 5;
     private static readonly TimeZoneInfo PerthTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Australia/Perth");
     private readonly IAnalyzedEmailRepository _analyzedEmailRepository;
     private readonly ILogger<EmailService> _logger;
@@ -54,12 +54,6 @@ public class EmailService : IEmailService
         });
     }
 
-    // 删除或注释掉 StartEmailMonitoringAsync 方法，因为我们现在使用后台服务
-    // public async Task StartEmailMonitoringAsync(UserEmailConfig config, CancellationToken cancellationToken)
-    // {
-    //     // ... 
-    // }
-
     // 扫描最近的50封邮件
     public async Task<IEnumerable<EmailMessage>> FetchRecentEmailsAsync(UserEmailConfig config)
     {
@@ -81,6 +75,127 @@ public class EmailService : IEmailService
                 {
                     var message = await inbox.GetMessageAsync(i);
                     await ProcessEmailMessage(message, messages);
+                }
+            }
+            finally
+            {
+                if (emailClient.IsConnected) await emailClient.DisconnectAsync(true);
+            }
+        });
+
+        return messages;
+    }
+
+    // 扫描所有邮件的方法
+    public async Task<IEnumerable<EmailMessage>> FetchAllEmailsAsync(UserEmailConfig config)
+    {
+        var messages = new List<EmailMessage>();
+
+        await _retryPolicy.ExecuteAsync(async () =>
+        {
+            using var emailClient = new ImapClient();
+            try
+            {
+                await ConnectWithTimeout(emailClient, config);
+                var inbox = emailClient.Inbox;
+                await inbox.OpenAsync(FolderAccess.ReadOnly);
+
+                var totalEmails = inbox.Count;
+
+                // 从最新的邮件开始处理
+                for (var i = totalEmails - 1; i >= 0; i--)
+                {
+                    // 每处理100封邮件记录一次日志
+                    if (i % 100 == 0)
+                        _logger.LogInformation("Processing email {Current}/{Total} for {Email}",
+                            totalEmails - i, totalEmails, config.EmailAddress);
+
+                    var message = await inbox.GetMessageAsync(i);
+
+                    // 检查是否已经分析过
+                    if (await _analyzedEmailRepository.ExistsAsync(config.Id, message.MessageId)) continue;
+
+                    await ProcessEmailMessage(message, messages);
+
+                    // 每处理10封邮件暂停一下，避免过度消耗资源
+                    if (messages.Count % 10 == 0) await Task.Delay(100);
+                }
+            }
+            finally
+            {
+                if (emailClient.IsConnected) await emailClient.DisconnectAsync(true);
+            }
+        });
+
+        return messages;
+    }
+
+    public async Task<IEnumerable<EmailMessage>> FetchIncrementalEmailsAsync(UserEmailConfig config,
+        uint? lastUid = null)
+    {
+        var messages = new List<EmailMessage>();
+        var batchSize = 100;
+
+        await _retryPolicy.ExecuteAsync(async () =>
+        {
+            using var emailClient = new ImapClient();
+            try
+            {
+                await ConnectWithTimeout(emailClient, config);
+                var inbox = emailClient.Inbox;
+                await inbox.OpenAsync(FolderAccess.ReadOnly);
+
+                var query = lastUid.HasValue
+                    ? SearchQuery.Uids(new[] { new UniqueId(lastUid.Value + 1, uint.MaxValue) })
+                    : SearchQuery.All;
+
+                var uids = await inbox.SearchAsync(query);
+                if (!uids.Any())
+                {
+                    _logger.LogInformation("No new emails found for {Email}", config.EmailAddress);
+                    return;
+                }
+
+                // 预先获取所有已分析过的 MessageId
+                var processedMessageIds = await _analyzedEmailRepository.GetProcessedMessageIdsAsync(config.Id);
+                _logger.LogInformation("Found {Count} previously processed messages", processedMessageIds.Count);
+
+                // 按批次处理邮件
+                foreach (var uidBatch in uids.OrderBy(x => x.Id).Chunk(batchSize))
+                {
+                    try
+                    {
+                        foreach (var uid in uidBatch)
+                        {
+                            try
+                            {
+                                var message = await inbox.GetMessageAsync(uid);
+
+                                // 使用内存中的集合进行检查，避免频繁的数据库查询
+                                if (processedMessageIds.Contains(message.MessageId))
+                                {
+                                    _logger.LogDebug("Skipping already processed message: {MessageId}",
+                                        message.MessageId);
+                                    continue;
+                                }
+
+                                await ProcessEmailMessage(message, messages, uid);
+                                await Task.Delay(100);
+                            }
+                            catch (MessageNotFoundException ex)
+                            {
+                                _logger.LogWarning(ex, "Message with UID {Uid} not found", uid);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error processing batch of emails");
+                        continue;
+                    }
+
+                    _logger.LogInformation("Processed batch of {Count} emails for {Email}",
+                        uidBatch.Length, config.EmailAddress);
                 }
             }
             finally
@@ -123,67 +238,6 @@ public class EmailService : IEmailService
             }
         });
 
-        return messages;
-    }
-
-    public async Task<IEnumerable<EmailMessage>> FetchNewEmailsAsync(UserEmailConfig config)
-    {
-        var messages = new List<EmailMessage>();
-        var lastAnalyzedDate = await _analyzedEmailRepository.GetLastAnalyzedDateAsync(config.Id);
-
-        await _retryPolicy.ExecuteAsync(async () =>
-        {
-            using var emailClient = new ImapClient();
-            try
-            {
-                await ConnectWithTimeout(emailClient, config);
-                var inbox = emailClient.Inbox;
-                await inbox.OpenAsync(FolderAccess.ReadOnly);
-
-                // 如果有上次分析的时间，只获取之后的邮件
-                var query = SearchQuery.All;
-                if (lastAnalyzedDate.HasValue) query = SearchQuery.DeliveredAfter(lastAnalyzedDate.Value);
-
-                // 获取符合条件的邮件索引
-                var indexes = await inbox.SearchAsync(query);
-
-                // 按时间倒序排序
-                var sortedIndexes = indexes.OrderByDescending(x => x);
-
-                foreach (var i in sortedIndexes.Take(MaxEmailsToScan))
-                    try
-                    {
-                        var message = await inbox.GetMessageAsync(i);
-                        var textBody = message.TextBody ?? message.HtmlBody;
-
-                        if (!string.IsNullOrEmpty(textBody))
-                        {
-                            messages.Add(new EmailMessage
-                            {
-                                MessageId = message.MessageId,
-                                Subject = message.Subject,
-                                Body = textBody,
-                                ReceivedDate = TimeZoneInfo.ConvertTimeFromUtc(message.Date.UtcDateTime, PerthTimeZone)
-                            });
-
-
-                            _logger.LogDebug("Successfully processed email with subject: {Subject}",
-                                message.Subject);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error processing email at index {Index} for {Email}",
-                            i, config.EmailAddress);
-                    }
-            }
-            finally
-            {
-                if (emailClient.IsConnected) await emailClient.DisconnectAsync(true);
-            }
-        });
-
-        _logger.LogInformation("Completed fetching {Count} emails for {Email}", messages.Count, config.EmailAddress);
         return messages;
     }
 
@@ -237,6 +291,25 @@ public class EmailService : IEmailService
                 });
 
                 _logger.LogDebug("Processed email: {Subject}", message.Subject);
+            });
+    }
+
+    private async Task ProcessEmailMessage(MimeMessage message, List<EmailMessage> messages, UniqueId uid)
+    {
+        var textBody = message.TextBody ?? message.HtmlBody;
+        if (!string.IsNullOrEmpty(textBody))
+            await Task.Run(() =>
+            {
+                messages.Add(new EmailMessage
+                {
+                    MessageId = message.MessageId,
+                    Subject = message.Subject,
+                    Body = textBody,
+                    ReceivedDate = TimeZoneInfo.ConvertTimeFromUtc(message.Date.UtcDateTime, PerthTimeZone),
+                    Uid = uid.Id // 添加UID到EmailMessage模型
+                });
+
+                _logger.LogDebug("Processed email: {Subject} (UID: {Uid})", message.Subject, uid);
             });
     }
 }

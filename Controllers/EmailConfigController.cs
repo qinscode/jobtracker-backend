@@ -15,6 +15,7 @@ namespace JobTracker.Controllers;
 [Route("api/[controller]")]
 public class EmailConfigController : ControllerBase
 {
+    private readonly IAnalyzedEmailRepository _analyzedEmailRepository;
     private readonly IUserEmailConfigRepository _configRepository;
     private readonly IEmailAnalysisService _emailAnalysisService;
     private readonly ILogger<EmailConfigController> _logger;
@@ -22,11 +23,13 @@ public class EmailConfigController : ControllerBase
     public EmailConfigController(
         IEmailAnalysisService emailAnalysisService,
         IUserEmailConfigRepository configRepository,
+        IAnalyzedEmailRepository analyzedEmailRepository,
         ILogger<EmailConfigController> logger)
     {
         _emailAnalysisService = emailAnalysisService;
         _configRepository = configRepository;
         _logger = logger;
+        _analyzedEmailRepository = analyzedEmailRepository;
     }
 
     [HttpPost]
@@ -121,6 +124,57 @@ public class EmailConfigController : ControllerBase
         {
             _logger.LogError(ex, "Error scanning emails for config {Id}", id);
             return StatusCode(500, new MessageResponseDto { Message = "Error scanning emails" });
+        }
+    }
+
+    [HttpPost("{id}/scan-all")]
+    public async Task<ActionResult<List<EmailAnalysisDto>>> ScanAllEmails(Guid id)
+    {
+        try
+        {
+            var config = await _configRepository.GetByIdAsync(id);
+            if (config == null) return NotFound("Email configuration not found");
+
+            _logger.LogInformation("Starting full email scan for config {Id}", id);
+            var results = await _emailAnalysisService.AnalyzeAllEmails(config);
+            _logger.LogInformation("Completed full email scan for config {Id}, found {Count} emails", id,
+                results.Count);
+
+            return Ok(results);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during full email scan for config {Id}", id);
+            return StatusCode(500, "An error occurred while scanning all emails");
+        }
+    }
+
+    [HttpPost("{id}/scan-incremental")]
+    public async Task<ActionResult<List<EmailAnalysisDto>>> ScanIncrementalEmails(Guid id)
+    {
+        try
+        {
+            var config = await _configRepository.GetByIdAsync(id);
+            if (config == null) return NotFound("Email configuration not found");
+
+            // 获取最后分析的 UID
+            var lastUid = await _analyzedEmailRepository.GetLastAnalyzedUidAsync(config.Id);
+
+            _logger.LogInformation("Starting incremental email scan for config {Id} from UID {LastUid}", id,
+                lastUid ?? 0);
+
+            // 调用增量扫描服务
+            var results = await _emailAnalysisService.AnalyzeIncrementalEmails(config, lastUid);
+
+            _logger.LogInformation("Completed incremental email scan for config {Id}, found {Count} new emails",
+                id, results.Count);
+
+            return Ok(results);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during incremental email scan for config {Id}", id);
+            return StatusCode(500, "An error occurred while scanning emails incrementally");
         }
     }
 

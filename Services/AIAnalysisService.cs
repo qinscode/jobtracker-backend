@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using JobTracker.Models;
 using JobTracker.Services.Interfaces;
 using JobTracker.Templates;
 using Polly;
@@ -59,13 +60,7 @@ public class AIAnalysisService : IAIAnalysisService
     {
         try
         {
-            var result = await CallGeminiApiWithRetry(emailContent);
-            _logger.LogInformation("Gemini Analysis Result: {Result}", result);
-
-            if (string.IsNullOrEmpty(result)) return false;
-
-            var jsonContent = result.Replace("json\n", "").Trim();
-            var jobInfo = JsonSerializer.Deserialize<JobInfo>(jsonContent);
+            var jobInfo = await AnalyzeEmail(emailContent);
             return jobInfo?.Status?.Equals("Rejected", StringComparison.OrdinalIgnoreCase) ?? false;
         }
         catch (Exception ex)
@@ -75,25 +70,80 @@ public class AIAnalysisService : IAIAnalysisService
         }
     }
 
-    public async Task<(string CompanyName, string JobTitle)> ExtractJobInfo(string emailContent)
+    public async Task<(string CompanyName, string JobTitle, UserJobStatus Status)> ExtractJobInfo(string emailContent)
     {
         try
         {
-            var result = await CallGeminiApiWithRetry(emailContent);
-            _logger.LogInformation("Gemini Analysis Result: {Result}", result);
-
-
-            if (string.IsNullOrEmpty(result)) return ("", "");
-
-            var jsonContent = result.Replace("json\n", "").Trim();
-            var jobInfo = JsonSerializer.Deserialize<JobInfo>(jsonContent);
-            return (jobInfo?.BusinessName ?? "", jobInfo?.JobTitle ?? "");
+            var jobInfo = await AnalyzeEmail(emailContent);
+            var status = ParseJobStatus(jobInfo?.Status);
+            return (jobInfo?.BusinessName ?? "", jobInfo?.JobTitle ?? "", status);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error extracting job info");
-            return ("", "");
+            return ("", "", UserJobStatus.Applied);
         }
+    }
+
+    private UserJobStatus ParseJobStatus(string? status)
+    {
+        if (string.IsNullOrEmpty(status))
+        {
+            _logger.LogInformation("Status is null or empty, defaulting to Applied");
+            return UserJobStatus.Applied;
+        }
+
+        _logger.LogInformation("Parsing status: {Status}", status);
+
+        var normalizedStatus = status.ToLower().Trim()
+            .Replace("_", " ") // 将下划线替换为空格
+            .Replace("technicalassessment", "technical assessment"); // 处理没有空格的情况
+
+        _logger.LogInformation("Normalized status: {NormalizedStatus}", normalizedStatus);
+
+        var result = normalizedStatus switch
+        {
+            "rejected" => UserJobStatus.Rejected,
+            "reviewed" => UserJobStatus.Reviewed,
+            "interviewing" => UserJobStatus.Interviewing,
+            "technical assessment" => UserJobStatus.TechnicalAssessment,
+            "offered" => UserJobStatus.Offered,
+            _ => UserJobStatus.Applied
+        };
+
+        _logger.LogInformation("Parsed status result: {Result} from original status: {OriginalStatus}",
+            result, status);
+
+        return result;
+    }
+
+    private async Task<JobInfo?> AnalyzeEmail(string emailContent)
+    {
+        var result = await CallGeminiApiWithRetry(emailContent);
+        _logger.LogInformation("Gemini Analysis Result: {Result}", result);
+
+        if (string.IsNullOrEmpty(result))
+        {
+            _logger.LogWarning("Empty result from Gemini API");
+            return null;
+        }
+
+        // 清理 markdown 代码块标记和多余的空白
+        var jsonContent = result
+            .Replace("```json", "")
+            .Replace("```", "")
+            .Trim();
+
+        _logger.LogInformation("Cleaned JSON content: {JsonContent}", jsonContent);
+
+        var jobInfo = JsonSerializer.Deserialize<JobInfo>(jsonContent);
+        _logger.LogInformation(
+            "Deserialized JobInfo - BusinessName: {BusinessName}, JobTitle: {JobTitle}, Status: {Status}",
+            jobInfo?.BusinessName,
+            jobInfo?.JobTitle,
+            jobInfo?.Status);
+
+        return jobInfo;
     }
 
     private async Task<string> CallGeminiApiWithRetry(string content)
@@ -161,6 +211,28 @@ public class AIAnalysisService : IAIAnalysisService
         _logger.LogInformation("Raw Gemini Response: {Response}", responseContent);
 
         var result = JsonSerializer.Deserialize<GeminiApiResponse>(responseContent);
+        _logger.LogInformation("Deserialized Response - Candidates Count: {Count}",
+            result?.Candidates?.Count ?? 0);
+
+        if (result?.Candidates != null && result.Candidates.Any())
+        {
+            var firstCandidate = result.Candidates.First();
+            _logger.LogInformation("First Candidate Content: {Content}",
+                JsonSerializer.Serialize(firstCandidate.Content));
+
+            if (firstCandidate.Content?.Parts != null)
+            {
+                _logger.LogInformation("Parts Count: {Count}",
+                    firstCandidate.Content.Parts.Count);
+
+                if (firstCandidate.Content.Parts.Any())
+                {
+                    var firstPart = firstCandidate.Content.Parts.First();
+                    _logger.LogInformation("First Part Text: {Text}",
+                        firstPart.Text);
+                }
+            }
+        }
 
         if (result?.Candidates == null || !result.Candidates.Any())
         {
@@ -195,16 +267,16 @@ public class AIAnalysisService : IAIAnalysisService
 
     private class Candidate
     {
-        [JsonPropertyName("content")] public Content? Content { get; }
+        [JsonPropertyName("content")] public Content? Content { get; set; }
     }
 
     private class Content
     {
-        [JsonPropertyName("parts")] public List<Part>? Parts { get; }
+        [JsonPropertyName("parts")] public List<Part>? Parts { get; set; }
     }
 
     private class Part
     {
-        [JsonPropertyName("text")] public string? Text { get; }
+        [JsonPropertyName("text")] public string? Text { get; set; }
     }
 }

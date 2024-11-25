@@ -90,9 +90,6 @@ builder.Services.AddScoped<IEmailAnalysisService, EmailAnalysisService>();
 // Register services
 builder.Services.AddScoped<IJobMatchingService, JobMatchingService>();
 
-// 注册后台服务
-builder.Services.AddHostedService<EmailMonitoringService>();
-
 
 var app = builder.Build();
 

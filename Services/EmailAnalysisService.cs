@@ -50,20 +50,19 @@ public class EmailAnalysisService : IEmailAnalysisService
         }
     }
 
-    public async Task<List<EmailAnalysisDto>> AnalyzeNewEmails(UserEmailConfig config, DateTime? since = null)
+    public async Task<List<EmailAnalysisDto>> AnalyzeAllEmails(UserEmailConfig config)
     {
-        _logger.LogInformation("Starting to analyze new emails for {Email} since {Date}",
-            config.EmailAddress, since?.ToString() ?? "beginning");
+        _logger.LogInformation("Starting to analyze all emails for {Email}", config.EmailAddress);
         var results = new List<EmailAnalysisDto>();
 
         try
         {
-            var emails = await _emailService.FetchNewEmailsAsync(config, since);
+            var emails = await _emailService.FetchAllEmailsAsync(config);
             return await ProcessEmails(emails, config);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error during new email analysis for {Email}", config.EmailAddress);
+            _logger.LogError(ex, "Error during full email analysis for {Email}", config.EmailAddress);
             throw;
         }
     }
@@ -79,7 +78,25 @@ public class EmailAnalysisService : IEmailAnalysisService
         await Task.CompletedTask;
     }
 
-    private async Task<List<EmailAnalysisDto>> ProcessEmails(IEnumerable<EmailMessage> emails, UserEmailConfig config)
+    public async Task<List<EmailAnalysisDto>> AnalyzeIncrementalEmails(UserEmailConfig config, uint? lastUid = null)
+    {
+        _logger.LogInformation("Starting incremental email analysis for {Email} from UID {LastUid}",
+            config.EmailAddress, lastUid ?? 0);
+
+        try
+        {
+            var emails = await _emailService.FetchIncrementalEmailsAsync(config, lastUid);
+            return await ProcessEmails(emails, config);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during incremental email analysis for {Email}", config.EmailAddress);
+            throw;
+        }
+    }
+
+    protected internal async Task<List<EmailAnalysisDto>> ProcessEmails(IEnumerable<EmailMessage> emails,
+        UserEmailConfig config)
     {
         var results = new List<EmailAnalysisDto>();
 
@@ -94,36 +111,68 @@ public class EmailAnalysisService : IEmailAnalysisService
 
             try
             {
-                var jobInfo = await _aiAnalysisService.ExtractJobInfo(email.Body);
-                var isRejection = await _aiAnalysisService.IsRejectionEmail(email.Body);
-                var status = isRejection ? UserJobStatus.Rejected : UserJobStatus.Applied;
+                var (companyName, jobTitle, status) = await _aiAnalysisService.ExtractJobInfo(email.Body);
+                var isRejection = status == UserJobStatus.Rejected;
 
                 // 创建基本的分析结果
                 var analysisResult = new EmailAnalysisDto
                 {
                     Subject = email.Subject,
                     ReceivedDate = email.ReceivedDate,
-                    IsRecognized = false
+                    IsRecognized = false,
+                    Status = status
                 };
 
-                Job? matchedJob = null; // 添加这个变量来跟踪匹配到的工作
+                Job? matchedJob = null;
 
-                // 如果提取到了公司名称和职位名称
-                if (!string.IsNullOrWhiteSpace(jobInfo.CompanyName) && !string.IsNullOrWhiteSpace(jobInfo.JobTitle))
+                // 修改这里：如果有公司名称就继续处理，不要求必须有职位名称
+                if (!string.IsNullOrWhiteSpace(companyName))
                 {
+                    var searchJobTitle = string.IsNullOrWhiteSpace(jobTitle) ? "Unknown Position" : jobTitle;
                     var (isMatch, job, similarity) = await _jobMatchingService.FindMatchingJobAsync(
-                        jobInfo.JobTitle,
-                        jobInfo.CompanyName);
+                        searchJobTitle,
+                        companyName);
 
                     if (isMatch && job != null)
                     {
                         matchedJob = job;
                         var userJob = await _userJobRepository.GetUserJobByUserIdAndJobIdAsync(config.UserId, job.Id);
-                        if (userJob != null && status == UserJobStatus.Rejected)
+                        if (userJob != null)
                         {
-                            userJob.Status = status;
-                            userJob.UpdatedAt = DateTime.UtcNow;
-                            await _userJobRepository.UpdateUserJobAsync(userJob);
+                            _logger.LogInformation(
+                                "Found existing UserJob - Current Status: {CurrentStatus}, New Status: {NewStatus}",
+                                userJob.Status, status);
+
+                            // 只有新状态比当前状态更晚时才更新
+                            if (ShouldUpdateStatus(userJob.Status, status))
+                            {
+                                _logger.LogInformation(
+                                    "Updating job status from {CurrentStatus} to {NewStatus}",
+                                    userJob.Status, status);
+
+                                userJob.Status = status;
+                                userJob.UpdatedAt = DateTime.UtcNow;
+                                await _userJobRepository.UpdateUserJobAsync(userJob);
+                            }
+                            else
+                            {
+                                _logger.LogInformation(
+                                    "Keeping current status {CurrentStatus} (new status {NewStatus} not applied)",
+                                    userJob.Status, status);
+                            }
+                        }
+                        else
+                        {
+                            _logger.LogInformation("Creating new UserJob with status: {Status}", status);
+                            userJob = new UserJob
+                            {
+                                UserId = config.UserId,
+                                JobId = job.Id,
+                                Status = status,
+                                CreatedAt = DateTime.UtcNow,
+                                UpdatedAt = DateTime.UtcNow
+                            };
+                            await _userJobRepository.CreateUserJobAsync(userJob);
                         }
 
                         var analyzedEmail = new AnalyzedEmail
@@ -132,17 +181,22 @@ public class EmailAnalysisService : IEmailAnalysisService
                             MessageId = email.MessageId,
                             Subject = email.Subject,
                             ReceivedDate = email.ReceivedDate,
-                            MatchedJobId = job.Id
+                            MatchedJobId = job.Id,
+                            Uid = email.Uid
                         };
                         await _analyzedEmailRepository.CreateAsync(analyzedEmail);
+
+                        _logger.LogInformation(
+                            "Successfully processed email - Subject: {Subject}, Status: {Status}, JobId: {JobId}",
+                            email.Subject, status, job.Id);
                     }
                     else
                     {
                         var perthTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, PerthTimeZone);
                         var newJob = new Job
                         {
-                            JobTitle = jobInfo.JobTitle ?? string.Empty,
-                            BusinessName = jobInfo.CompanyName ?? string.Empty,
+                            JobTitle = searchJobTitle,
+                            BusinessName = companyName,
                             CreatedAt = perthTime,
                             UpdatedAt = perthTime,
                             IsActive = true,
@@ -162,7 +216,6 @@ public class EmailAnalysisService : IEmailAnalysisService
                         {
                             newJob = await _jobRepository.CreateJobAsync(newJob);
 
-
                             var userJob = new UserJob
                             {
                                 UserId = config.UserId,
@@ -173,21 +226,19 @@ public class EmailAnalysisService : IEmailAnalysisService
                             };
                             await _userJobRepository.CreateUserJobAsync(userJob);
 
-
                             var analyzedEmail = new AnalyzedEmail
                             {
                                 UserEmailConfigId = config.Id,
                                 MessageId = email.MessageId,
                                 Subject = email.Subject,
                                 ReceivedDate = email.ReceivedDate,
-                                MatchedJobId = newJob.Id
+                                MatchedJobId = newJob.Id,
+                                Uid = email.Uid
                             };
                             await _analyzedEmailRepository.CreateAsync(analyzedEmail);
 
-
                             matchedJob = newJob;
 
-                            // 设置分析结果
                             analysisResult.Job = new JobBasicInfo
                             {
                                 Id = newJob.Id,
@@ -195,12 +246,13 @@ public class EmailAnalysisService : IEmailAnalysisService
                                 BusinessName = newJob.BusinessName ?? string.Empty
                             };
                             analysisResult.IsRecognized = true;
+                            analysisResult.Status = status;
                         }
                         catch (Exception ex)
                         {
                             _logger.LogError(ex, "Failed to create new job for {Company} - {Title}",
-                                jobInfo.CompanyName, jobInfo.JobTitle);
-                            throw; // 重新抛出异常，因为这是一个关键错误
+                                companyName, searchJobTitle);
+                            throw;
                         }
                     }
 
@@ -213,18 +265,12 @@ public class EmailAnalysisService : IEmailAnalysisService
                             BusinessName = matchedJob.BusinessName ?? string.Empty
                         };
                         analysisResult.IsRecognized = true;
+                        analysisResult.Status = status;
                     }
                 }
                 else
                 {
-                    _logger.LogError("Failed to extract job information from email: {Subject}", email.Subject);
-                    results.Add(new EmailAnalysisDto
-                    {
-                        Subject = email.Subject,
-                        ReceivedDate = email.ReceivedDate,
-                        IsRecognized = false
-                    });
-                    continue;
+                    _logger.LogWarning("Could not extract company name from email: {Subject}", email.Subject);
                 }
 
                 results.Add(analysisResult);
@@ -232,7 +278,6 @@ public class EmailAnalysisService : IEmailAnalysisService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error analyzing email with subject: {Subject}", email.Subject);
-
                 results.Add(new EmailAnalysisDto
                 {
                     Subject = email.Subject,
@@ -243,6 +288,29 @@ public class EmailAnalysisService : IEmailAnalysisService
         }
 
         return results;
+    }
+
+    private bool ShouldUpdateStatus(UserJobStatus currentStatus, UserJobStatus newStatus)
+    {
+        // 定义状态的进展顺序
+        var statusOrder = new Dictionary<UserJobStatus, int>
+        {
+            { UserJobStatus.Applied, 0 },
+            { UserJobStatus.Reviewed, 1 },
+            { UserJobStatus.Interviewing, 2 },
+            { UserJobStatus.TechnicalAssessment, 3 },
+            { UserJobStatus.Offered, 4 },
+            { UserJobStatus.Rejected, 5 } // Rejected 可以发生在任何阶段
+        };
+
+        // 如果新状态是 Rejected，总是更新
+        if (newStatus == UserJobStatus.Rejected)
+            return true;
+
+        // 否则只有当新状态的顺序更高时才更新
+        return statusOrder.TryGetValue(newStatus, out var newOrder) &&
+               statusOrder.TryGetValue(currentStatus, out var currentOrder) &&
+               newOrder > currentOrder;
     }
 
     public async Task ScanEmailsAsync(UserEmailConfig config)
