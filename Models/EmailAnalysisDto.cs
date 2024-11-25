@@ -8,7 +8,7 @@ public class EmailAnalysisDto
     public JobBasicInfo? Job { get; set; }
     public UserJobStatus Status { get; set; }
     public List<string> KeyPhrases { get; set; } = new();
-    public string? SuggestedAction { get; set; }
+    public string? SuggestedActions { get; set; }
 }
 
 public class JobBasicInfo

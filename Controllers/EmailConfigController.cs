@@ -135,7 +135,7 @@ public class EmailConfigController : ControllerBase
                     },
                 Status = r.Status.ToString(),
                 r.KeyPhrases,
-                r.SuggestedAction
+                r.SuggestedActions
             });
 
             return Ok(response);
@@ -176,7 +176,7 @@ public class EmailConfigController : ControllerBase
                     },
                 Status = r.Status.ToString(),
                 r.KeyPhrases,
-                r.SuggestedAction
+                r.SuggestedActions
             });
 
             return Ok(response);
@@ -222,7 +222,7 @@ public class EmailConfigController : ControllerBase
                     },
                 Status = r.Status.ToString(),
                 r.KeyPhrases,
-                r.SuggestedAction
+                r.SuggestedActions
             });
 
             return Ok(response);
@@ -270,7 +270,7 @@ public class EmailConfigController : ControllerBase
                         },
                     Status = r.Status.ToString(),
                     r.KeyPhrases,
-                    r.SuggestedAction
+                    r.SuggestedActions
                 }).OrderByDescending(r => r.ReceivedDate)
             };
 

@@ -110,7 +110,7 @@ public class EmailAnalysisService : IEmailAnalysisService
 
             try
             {
-                var (companyName, jobTitle, status, keyPhrases, suggestedAction) =
+                var (companyName, jobTitle, status, keyPhrases, SuggestedActions) =
                     await _aiAnalysisService.ExtractJobInfo(email.Body);
 
                 // 创建基本的分析结果
@@ -121,7 +121,7 @@ public class EmailAnalysisService : IEmailAnalysisService
                     IsRecognized = false,
                     Status = status,
                     KeyPhrases = keyPhrases,
-                    SuggestedAction = suggestedAction
+                    SuggestedActions = SuggestedActions
                 };
 
                 Job? matchedJob = null;
@@ -185,7 +185,7 @@ public class EmailAnalysisService : IEmailAnalysisService
                             MatchedJobId = job.Id,
                             Uid = email.Uid,
                             KeyPhrases = keyPhrases.ToArray(),
-                            SuggestedAction = suggestedAction
+                            SuggestedActions = SuggestedActions
                         };
                         await _analyzedEmailRepository.CreateAsync(analyzedEmail);
 
@@ -238,7 +238,7 @@ public class EmailAnalysisService : IEmailAnalysisService
                                 MatchedJobId = newJob.Id,
                                 Uid = email.Uid,
                                 KeyPhrases = keyPhrases.ToArray(),
-                                SuggestedAction = suggestedAction
+                                SuggestedActions = SuggestedActions
                             };
                             await _analyzedEmailRepository.CreateAsync(analyzedEmail);
 

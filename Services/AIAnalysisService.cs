@@ -72,7 +72,7 @@ public class AIAnalysisService : IAIAnalysisService
 
     public async
         Task<(string CompanyName, string JobTitle, UserJobStatus Status, List<string> KeyPhrases, string?
-            SuggestedAction)> ExtractJobInfo(string emailContent)
+            SuggestedActions)> ExtractJobInfo(string emailContent)
     {
         try
         {
@@ -80,19 +80,19 @@ public class AIAnalysisService : IAIAnalysisService
             var status = ParseJobStatus(jobInfo?.Status);
 
             _logger.LogInformation(
-                "Extracted job info - Company: {Company}, Title: {Title}, Status: {Status}, KeyPhrases: {KeyPhrases}, SuggestedAction: {SuggestedAction}",
+                "Extracted job info - Company: {Company}, Title: {Title}, Status: {Status}, KeyPhrases: {KeyPhrases}, SuggestedActions: {SuggestedActions}",
                 jobInfo?.BusinessName,
                 jobInfo?.JobTitle,
                 status,
                 jobInfo?.KeyPhrases != null ? string.Join(", ", jobInfo.KeyPhrases) : "none",
-                jobInfo?.SuggestedAction ?? "none");
+                jobInfo?.SuggestedActions ?? "none");
 
             return (
                 jobInfo?.BusinessName ?? "",
                 jobInfo?.JobTitle ?? "",
                 status,
                 jobInfo?.KeyPhrases ?? new List<string>(),
-                jobInfo?.SuggestedAction
+                jobInfo?.SuggestedActions
             );
         }
         catch (Exception ex)
@@ -162,11 +162,11 @@ public class AIAnalysisService : IAIAnalysisService
 
             var jobInfo = JsonSerializer.Deserialize<JobInfo>(jsonContent, options);
             _logger.LogInformation(
-                "Deserialized JobInfo - BusinessName: {BusinessName}, JobTitle: {JobTitle}, Status: {Status}, SuggestedAction: {SuggestedAction}",
+                "Deserialized JobInfo - BusinessName: {BusinessName}, JobTitle: {JobTitle}, Status: {Status}, SuggestedActions: {SuggestedActions}",
                 jobInfo?.BusinessName,
                 jobInfo?.JobTitle,
                 jobInfo?.Status,
-                jobInfo?.SuggestedAction);
+                jobInfo?.SuggestedActions);
 
             return jobInfo;
         }
@@ -292,7 +292,7 @@ public class AIAnalysisService : IAIAnalysisService
 
         [JsonPropertyName("KeyPhrases")] public List<string> KeyPhrases { get; set; } = new();
 
-        [JsonPropertyName("SuggestedAction")] public string? SuggestedAction { get; set; }
+        [JsonPropertyName("SuggestedActions")] public string? SuggestedActions { get; set; }
     }
 
     private class GeminiApiResponse

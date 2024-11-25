@@ -6,6 +6,6 @@ public interface IAIAnalysisService
 {
     Task<bool> IsRejectionEmail(string emailContent);
 
-    Task<(string CompanyName, string JobTitle, UserJobStatus Status, List<string> KeyPhrases, string? SuggestedAction)>
+    Task<(string CompanyName, string JobTitle, UserJobStatus Status, List<string> KeyPhrases, string? SuggestedActions)>
         ExtractJobInfo(string emailContent);
 }

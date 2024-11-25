@@ -38,12 +38,11 @@ If the email is NOT job application-related, return an empty JSON object:
    - Rejected
 
 4. Key phrases should include:
-
    - Important dates or deadlines
    - Requirements or expectations
    - Next steps mentioned
    - Critical information about the process
-
+   - No more than 3 words per key phrase
 
 5. Suggested action should:
 
@@ -72,9 +71,9 @@ Output:
     ""Status"": ""Reviewed"",
     ""KeyPhrases"": [
         ""application under review"",
-        ""response within 3-5 business days""
+        ""3-5 business days""
     ],
-    ""SuggestedAction"": ""Wait for response within 5 business days""
+    ""SuggestedActions"": ""Wait for response within 5 business days""
 }
 
 

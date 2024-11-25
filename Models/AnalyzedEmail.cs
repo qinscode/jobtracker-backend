@@ -22,5 +22,5 @@ public class AnalyzedEmail
     public uint? Uid { get; set; }
 
     public string[] KeyPhrases { get; set; } = Array.Empty<string>();
-    public string? SuggestedAction { get; set; }
+    public string? SuggestedActions { get; set; }
 }

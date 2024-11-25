@@ -9,8 +9,8 @@ namespace JobTracker.Controllers;
 [Route("api/[controller]")]
 public class JobMatchingController : ControllerBase
 {
-    private readonly IJobMatchingService _jobMatchingService;
     private readonly IAIAnalysisService _aiAnalysisService;
+    private readonly IJobMatchingService _jobMatchingService;
     private readonly ILogger<JobMatchingController> _logger;
 
     public JobMatchingController(
@@ -64,7 +64,7 @@ public class JobMatchingController : ControllerBase
     {
         try
         {
-            var (companyName, jobTitle, status, keyPhrases, suggestedAction) =
+            var (companyName, jobTitle, status, keyPhrases, SuggestedActions) =
                 await _aiAnalysisService.ExtractJobInfo(request.EmailContent);
 
             return Ok(new EmailAnalysisTestResponse
@@ -73,7 +73,7 @@ public class JobMatchingController : ControllerBase
                 JobTitle = jobTitle,
                 Status = status.ToString(),
                 KeyPhrases = keyPhrases,
-                SuggestedAction = suggestedAction,
+                SuggestedActions = SuggestedActions,
                 RawContent = request.EmailContent
             });
         }
@@ -102,7 +102,7 @@ public class EmailAnalysisTestResponse
     public string JobTitle { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public List<string> KeyPhrases { get; set; } = new();
-    public string? SuggestedAction { get; set; }
+    public string? SuggestedActions { get; set; }
     public string RawContent { get; set; } = string.Empty;
 }
 
