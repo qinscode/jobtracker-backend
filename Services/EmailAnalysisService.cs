@@ -78,6 +78,23 @@ public class EmailAnalysisService : IEmailAnalysisService
         await Task.CompletedTask;
     }
 
+    public async Task<List<EmailAnalysisDto>> AnalyzeIncrementalEmails(UserEmailConfig config, uint? lastUid = null)
+    {
+        _logger.LogInformation("Starting incremental email analysis for {Email} from UID {LastUid}",
+            config.EmailAddress, lastUid ?? 0);
+
+        try
+        {
+            var emails = await _emailService.FetchIncrementalEmailsAsync(config, lastUid);
+            return await ProcessEmails(emails, config);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during incremental email analysis for {Email}", config.EmailAddress);
+            throw;
+        }
+    }
+
     private async Task<List<EmailAnalysisDto>> ProcessEmails(IEnumerable<EmailMessage> emails, UserEmailConfig config)
     {
         var results = new List<EmailAnalysisDto>();

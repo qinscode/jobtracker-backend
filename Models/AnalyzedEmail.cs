@@ -18,4 +18,6 @@ public class AnalyzedEmail
 
     [Required] public int MatchedJobId { get; set; }
     [ForeignKey("MatchedJobId")] public Job? MatchedJob { get; set; }
+
+    public uint? Uid { get; set; }
 }
