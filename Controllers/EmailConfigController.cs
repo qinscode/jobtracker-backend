@@ -109,49 +109,72 @@ public class EmailConfigController : ControllerBase
         return Ok(new { message = "Email configuration deleted successfully" });
     }
 
-
-    [HttpPost("{id}/scan-incremental")]
-    public async Task<ActionResult<List<EmailAnalysisDto>>> ScanIncrementalEmails(Guid id)
+    [HttpPost("scan-incremental")]
+    public async Task<ActionResult<List<EmailAnalysisDto>>> ScanIncrementalEmails()
     {
         try
         {
-            var config = await _configRepository.GetByIdAsync(id);
-            if (config == null) return NotFound("Email configuration not found");
+            var userId = GetUserIdFromToken();
+            var configs = await _configRepository.GetByUserIdAsync(userId);
 
-            var lastUid = await _analyzedEmailRepository.GetLastAnalyzedUidAsync(config.Id);
+            if (!configs.Any())
+            {
+                return NotFound(new { message = "No email configurations found for this user" });
+            }
 
-            _logger.LogInformation("Starting incremental email scan for config {Id} from UID {LastUid}", id,
-                lastUid ?? 0);
+            var allResults = new List<EmailAnalysisDto>();
 
-            var results = await _emailAnalysisService.AnalyzeIncrementalEmails(config, lastUid);
+            foreach (var config in configs)
+            {
+                var lastUid = await _analyzedEmailRepository.GetLastAnalyzedUidAsync(config.Id);
 
-            _logger.LogInformation("Completed incremental email scan for config {Id}, found {Count} new emails",
-                id, results.Count);
+                _logger.LogInformation(
+                    "Starting incremental email scan for config {Id} (email: {Email}) from UID {LastUid}",
+                    config.Id,
+                    config.EmailAddress,
+                    lastUid ?? 0);
+
+                var results = await _emailAnalysisService.AnalyzeIncrementalEmails(config, lastUid);
+                allResults.AddRange(results);
+
+                _logger.LogInformation(
+                    "Completed incremental email scan for config {Id}, found {Count} new emails",
+                    config.Id,
+                    results.Count);
+            }
 
             // 格式化响应，包含新的字段
-            var response = results.Select(r => new
-            {
-                r.Subject,
-                r.ReceivedDate,
-                r.IsRecognized,
-                Job = r.Job == null
-                    ? null
-                    : new
-                    {
-                        r.Job.Id,
-                        r.Job.JobTitle,
-                        r.Job.BusinessName
-                    },
-                Status = r.Status.ToString(),
-                r.KeyPhrases,
-                r.SuggestedActions
-            });
+            var response = allResults
+                .OrderByDescending(r => r.ReceivedDate)
+                .Select(r => new
+                {
+                    r.Subject,
+                    r.ReceivedDate,
+                    r.IsRecognized,
+                    Job = r.Job == null
+                        ? null
+                        : new
+                        {
+                            r.Job.Id,
+                            r.Job.JobTitle,
+                            r.Job.BusinessName
+                        },
+                    r.Status,
+                    r.KeyPhrases,
+                    r.SuggestedActions
+                });
 
-            return Ok(response);
+            return Ok(new
+            {
+                message = "Incremental scan completed successfully",
+                totalEmails = allResults.Count,
+                recognizedEmails = allResults.Count(r => r.IsRecognized),
+                results = response
+            });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error during incremental email scan for config {Id}", id);
+            _logger.LogError(ex, "Error during incremental email scan");
             return StatusCode(500, "An error occurred while scanning emails incrementally");
         }
     }
