@@ -36,8 +36,6 @@ public class EmailAnalysisService : IEmailAnalysisService
     public async Task<List<EmailAnalysisDto>> AnalyzeRecentEmails(UserEmailConfig config)
     {
         _logger.LogInformation("Starting to analyze recent emails for {Email}", config.EmailAddress);
-        var results = new List<EmailAnalysisDto>();
-
         try
         {
             var emails = await _emailService.FetchRecentEmailsAsync(config);
@@ -53,8 +51,6 @@ public class EmailAnalysisService : IEmailAnalysisService
     public async Task<List<EmailAnalysisDto>> AnalyzeAllEmails(UserEmailConfig config)
     {
         _logger.LogInformation("Starting to analyze all emails for {Email}", config.EmailAddress);
-        var results = new List<EmailAnalysisDto>();
-
         try
         {
             var emails = await _emailService.FetchAllEmailsAsync(config);
@@ -74,7 +70,6 @@ public class EmailAnalysisService : IEmailAnalysisService
 
     public async Task ProcessRejectionEmail(string emailContent, Guid userId)
     {
-        // 暂时不实现
         await Task.CompletedTask;
     }
 
@@ -121,22 +116,32 @@ public class EmailAnalysisService : IEmailAnalysisService
                     IsRecognized = false,
                     Status = status,
                     KeyPhrases = keyPhrases,
-                    SuggestedActions = SuggestedActions
+                    SuggestedActions = SuggestedActions,
+                    Similarity = null // 初始化为 null
                 };
 
                 Job? matchedJob = null;
 
-                // 修改这里：如果有公司名称就继续处理，不要求必须有职位名称
                 if (!string.IsNullOrWhiteSpace(companyName))
                 {
                     var searchJobTitle = string.IsNullOrWhiteSpace(jobTitle) ? "Unknown Position" : jobTitle;
+                    _logger.LogInformation("Attempting to match - Title: '{JobTitle}', Company: '{CompanyName}'",
+                        searchJobTitle, companyName);
+
                     var (isMatch, job, similarity) = await _jobMatchingService.FindMatchingJobAsync(
                         searchJobTitle,
                         companyName);
 
+                    _logger.LogInformation(
+                        "Match result - IsMatch: {IsMatch}, Similarity: {Similarity}, JobId: {JobId}",
+                        isMatch, similarity, job?.Id);
+
                     if (isMatch && job != null)
                     {
                         matchedJob = job;
+                        analysisResult.Similarity = similarity;
+                        _logger.LogInformation("Setting similarity for matched job: {Similarity}", similarity);
+
                         var userJob = await _userJobRepository.GetUserJobByUserIdAndJobIdAsync(config.UserId, job.Id);
                         if (userJob != null)
                         {
@@ -144,7 +149,6 @@ public class EmailAnalysisService : IEmailAnalysisService
                                 "Found existing UserJob - Current Status: {CurrentStatus}, New Status: {NewStatus}",
                                 userJob.Status, status);
 
-                            // 只有新状态比当前状态更晚时才更新
                             if (ShouldUpdateStatus(userJob.Status, status))
                             {
                                 _logger.LogInformation(
@@ -185,16 +189,19 @@ public class EmailAnalysisService : IEmailAnalysisService
                             MatchedJobId = job.Id,
                             Uid = email.Uid,
                             KeyPhrases = keyPhrases.ToArray(),
-                            SuggestedActions = SuggestedActions
+                            SuggestedActions = SuggestedActions,
+                            Similarity = similarity
                         };
-                        await _analyzedEmailRepository.CreateAsync(analyzedEmail);
 
                         _logger.LogInformation(
-                            "Successfully processed email - Subject: {Subject}, Status: {Status}, JobId: {JobId}",
-                            email.Subject, status, job.Id);
+                            "Creating analyzed email with similarity: {Similarity}",
+                            similarity);
+
+                        await _analyzedEmailRepository.CreateAsync(analyzedEmail);
                     }
                     else
                     {
+                        _logger.LogInformation("No match found, creating new job");
                         var perthTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, PerthTimeZone);
                         var newJob = new Job
                         {
@@ -238,12 +245,15 @@ public class EmailAnalysisService : IEmailAnalysisService
                                 MatchedJobId = newJob.Id,
                                 Uid = email.Uid,
                                 KeyPhrases = keyPhrases.ToArray(),
-                                SuggestedActions = SuggestedActions
+                                SuggestedActions = SuggestedActions,
+                                Similarity = 1.0 // 新创建的工作，设置为完全匹配
                             };
+
+                            _logger.LogInformation("Creating new job with similarity 1.0 (perfect match)");
                             await _analyzedEmailRepository.CreateAsync(analyzedEmail);
 
                             matchedJob = newJob;
-
+                            analysisResult.Similarity = 1.0;
                             analysisResult.Job = new JobBasicInfo
                             {
                                 Id = newJob.Id,
@@ -287,7 +297,8 @@ public class EmailAnalysisService : IEmailAnalysisService
                 {
                     Subject = email.Subject,
                     ReceivedDate = email.ReceivedDate,
-                    IsRecognized = false
+                    IsRecognized = false,
+                    Similarity = null
                 });
             }
         }
@@ -297,7 +308,6 @@ public class EmailAnalysisService : IEmailAnalysisService
 
     private bool ShouldUpdateStatus(UserJobStatus currentStatus, UserJobStatus newStatus)
     {
-        // 定义状态的进展顺序
         var statusOrder = new Dictionary<UserJobStatus, int>
         {
             { UserJobStatus.Applied, 0 },
@@ -305,14 +315,12 @@ public class EmailAnalysisService : IEmailAnalysisService
             { UserJobStatus.Interviewing, 2 },
             { UserJobStatus.TechnicalAssessment, 3 },
             { UserJobStatus.Offered, 4 },
-            { UserJobStatus.Rejected, 5 } // Rejected 可以发生在任何阶段
+            { UserJobStatus.Rejected, 5 }
         };
 
-        // 如果新状态是 Rejected，总是更新
         if (newStatus == UserJobStatus.Rejected)
             return true;
 
-        // 否则只有当新状态的顺序更高时才更新
         return statusOrder.TryGetValue(newStatus, out var newOrder) &&
                statusOrder.TryGetValue(currentStatus, out var currentOrder) &&
                newOrder > currentOrder;
@@ -320,7 +328,6 @@ public class EmailAnalysisService : IEmailAnalysisService
 
     public async Task ScanEmailsAsync(UserEmailConfig config)
     {
-        // 暂时不实现
         await Task.CompletedTask;
     }
 }

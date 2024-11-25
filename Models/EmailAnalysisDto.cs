@@ -9,6 +9,7 @@ public class EmailAnalysisDto
     public UserJobStatus Status { get; set; }
     public List<string> KeyPhrases { get; set; } = new();
     public string? SuggestedActions { get; set; }
+    public double? Similarity { get; set; }
 }
 
 public class JobBasicInfo

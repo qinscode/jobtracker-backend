@@ -23,4 +23,6 @@ public class AnalyzedEmail
 
     public string[] KeyPhrases { get; set; } = Array.Empty<string>();
     public string? SuggestedActions { get; set; }
+
+    public double? Similarity { get; set; }
 }
