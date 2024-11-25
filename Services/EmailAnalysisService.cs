@@ -114,7 +114,7 @@ public class EmailAnalysisService : IEmailAnalysisService
                     Subject = email.Subject,
                     ReceivedDate = email.ReceivedDate,
                     IsRecognized = false,
-                    Status = status,
+                    Status = status.ToString(),
                     KeyPhrases = keyPhrases,
                     SuggestedActions = SuggestedActions,
                     Similarity = null // 初始化为 null
@@ -261,7 +261,7 @@ public class EmailAnalysisService : IEmailAnalysisService
                                 BusinessName = newJob.BusinessName ?? string.Empty
                             };
                             analysisResult.IsRecognized = true;
-                            analysisResult.Status = status;
+                            analysisResult.Status = status.ToString();
                         }
                         catch (Exception ex)
                         {
@@ -280,7 +280,7 @@ public class EmailAnalysisService : IEmailAnalysisService
                             BusinessName = matchedJob.BusinessName ?? string.Empty
                         };
                         analysisResult.IsRecognized = true;
-                        analysisResult.Status = status;
+                        analysisResult.Status = status.ToString();
                     }
                 }
                 else

@@ -6,7 +6,7 @@ public class EmailAnalysisDto
     public DateTime ReceivedDate { get; set; }
     public bool IsRecognized { get; set; }
     public JobBasicInfo? Job { get; set; }
-    public UserJobStatus Status { get; set; }
+    public string Status { get; set; } = string.Empty;
     public List<string> KeyPhrases { get; set; } = new();
     public string? SuggestedActions { get; set; }
     public double? Similarity { get; set; }
