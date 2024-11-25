@@ -19,6 +19,7 @@ public class Job
     public string? Url { get; set; }
     public DateTime? PostedDate { get; set; }
     public string? JobDescription { get; set; }
+    public string? TechStack { get; set; }
     public int? AdvertiserId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
