@@ -72,4 +72,24 @@ public class AnalyzedEmailRepository : IAnalyzedEmailRepository
         _context.Entry(analyzedEmail).State = EntityState.Modified;
         await _context.SaveChangesAsync();
     }
+
+    public async Task<(List<AnalyzedEmail> Emails, int TotalCount)> GetAnalyzedEmailsAsync(
+        Guid userEmailConfigId,
+        int pageNumber,
+        int pageSize)
+    {
+        var query = _context.AnalyzedEmails
+            .Include(ae => ae.MatchedJob)
+            .Where(ae => ae.UserEmailConfigId == userEmailConfigId)
+            .OrderByDescending(ae => ae.ReceivedDate);
+
+        var totalCount = await query.CountAsync();
+
+        var emails = await query
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return (emails, totalCount);
+    }
 }
