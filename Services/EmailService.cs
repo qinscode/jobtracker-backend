@@ -13,24 +13,29 @@ namespace JobTracker.Services;
 
 public class EmailService : IEmailService
 {
-    private const int MaxRetries = 3;
-    private const int TimeoutSeconds = 30;
-    private const int MaxEmailsToScan = 5;
-    private static readonly TimeZoneInfo PerthTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Australia/Perth");
     private readonly IAnalyzedEmailRepository _analyzedEmailRepository;
     private readonly ILogger<EmailService> _logger;
     private readonly AsyncRetryPolicy _retryPolicy;
+    private readonly EmailServiceConfig _config;
+    private static readonly TimeZoneInfo PerthTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Australia/Perth");
 
     public EmailService(
         ILogger<EmailService> logger,
-        IAnalyzedEmailRepository analyzedEmailRepository)
+        IAnalyzedEmailRepository analyzedEmailRepository,
+        IConfiguration configuration)
     {
         _logger = logger;
         _analyzedEmailRepository = analyzedEmailRepository;
+        _config = configuration.GetSection("EmailScanning").Get<EmailServiceConfig>()
+                  ?? new EmailServiceConfig();
+
         _retryPolicy = Policy
             .Handle<Exception>()
-            .WaitAndRetryAsync(MaxRetries, retryAttempt =>
-                TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
+            .WaitAndRetryAsync(
+                _config.Gmail.RetryAttempts,
+                retryAttempt => TimeSpan.FromSeconds(
+                    Math.Pow(2, retryAttempt) * _config.Gmail.RetryDelaySeconds)
+            );
     }
 
     public async Task ConnectAndAuthenticateAsync(string email, string password)
@@ -69,7 +74,7 @@ public class EmailService : IEmailService
                 await inbox.OpenAsync(FolderAccess.ReadOnly);
 
                 var totalEmails = inbox.Count;
-                var startIndex = Math.Max(0, totalEmails - MaxEmailsToScan);
+                var startIndex = Math.Max(0, totalEmails - _config.Gmail.MaxConcurrentScans);
 
                 for (var i = totalEmails - 1; i >= startIndex; i--)
                 {
@@ -130,11 +135,10 @@ public class EmailService : IEmailService
         return messages;
     }
 
-    public async Task<IEnumerable<EmailMessage>> FetchIncrementalEmailsAsync(UserEmailConfig config,
-        uint? lastUid = null)
+    public async Task<IEnumerable<EmailMessage>> FetchIncrementalEmailsAsync(
+        UserEmailConfig config, uint? lastUid = null)
     {
         var messages = new List<EmailMessage>();
-        var batchSize = 100;
 
         await _retryPolicy.ExecuteAsync(async () =>
         {
@@ -156,12 +160,14 @@ public class EmailService : IEmailService
                     return;
                 }
 
-                // 预先获取所有已分析过的 MessageId
-                var processedMessageIds = await _analyzedEmailRepository.GetProcessedMessageIdsAsync(config.Id);
-                _logger.LogInformation("Found {Count} previously processed messages", processedMessageIds.Count);
+                var processedMessageIds = await _analyzedEmailRepository
+                    .GetProcessedMessageIdsAsync(config.Id);
+                _logger.LogInformation(
+                    "Found {Count} previously processed messages",
+                    processedMessageIds.Count);
 
-                // 按批次处理邮件
-                foreach (var uidBatch in uids.OrderBy(x => x.Id).Chunk(batchSize))
+                foreach (var uidBatch in uids.OrderBy(x => x.Id)
+                             .Chunk(_config.Gmail.BatchSize))
                 {
                     try
                     {
@@ -194,13 +200,15 @@ public class EmailService : IEmailService
                         continue;
                     }
 
-                    _logger.LogInformation("Processed batch of {Count} emails for {Email}",
+                    _logger.LogInformation(
+                        "Processed batch of {Count} emails for {Email}",
                         uidBatch.Length, config.EmailAddress);
                 }
             }
             finally
             {
-                if (emailClient.IsConnected) await emailClient.DisconnectAsync(true);
+                if (emailClient.IsConnected)
+                    await emailClient.DisconnectAsync(true);
             }
         });
 
@@ -243,31 +251,46 @@ public class EmailService : IEmailService
 
     private async Task ConnectWithTimeout(ImapClient client, UserEmailConfig config)
     {
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(TimeoutSeconds));
+        using var cts = new CancellationTokenSource(
+            TimeSpan.FromSeconds(_config.Gmail.RetryDelaySeconds * 2));
         try
         {
-            await client.ConnectAsync("imap.gmail.com", 993, true, cts.Token);
-            await client.AuthenticateAsync(config.EmailAddress, DecryptPassword(config.EncryptedPassword), cts.Token);
+            await client.ConnectAsync(
+                _config.Gmail.ImapServer,
+                _config.Gmail.ImapPort,
+                _config.Gmail.UseSsl,
+                cts.Token);
+            await client.AuthenticateAsync(
+                config.EmailAddress,
+                DecryptPassword(config.EncryptedPassword),
+                cts.Token);
         }
         catch (OperationCanceledException)
         {
             _logger.LogError("Connection timeout for {Email}", config.EmailAddress);
-            throw new TimeoutException($"Connection timeout after {TimeoutSeconds} seconds");
+            throw new TimeoutException(
+                $"Connection timeout after {_config.Gmail.RetryDelaySeconds * 2} seconds");
         }
     }
 
     private async Task ConnectWithTimeout(ImapClient client, string email, string password)
     {
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(TimeoutSeconds));
+        using var cts = new CancellationTokenSource(
+            TimeSpan.FromSeconds(_config.Gmail.RetryDelaySeconds * 2));
         try
         {
-            await client.ConnectAsync("imap.gmail.com", 993, true, cts.Token);
+            await client.ConnectAsync(
+                _config.Gmail.ImapServer,
+                _config.Gmail.ImapPort,
+                _config.Gmail.UseSsl,
+                cts.Token);
             await client.AuthenticateAsync(email, password, cts.Token);
         }
         catch (OperationCanceledException)
         {
             _logger.LogError("Connection timeout for {Email}", email);
-            throw new TimeoutException($"Connection timeout after {TimeoutSeconds} seconds");
+            throw new TimeoutException(
+                $"Connection timeout after {_config.Gmail.RetryDelaySeconds * 2} seconds");
         }
     }
 
