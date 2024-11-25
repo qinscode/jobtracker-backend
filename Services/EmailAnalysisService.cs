@@ -50,6 +50,22 @@ public class EmailAnalysisService : IEmailAnalysisService
         }
     }
 
+    public async Task<List<EmailAnalysisDto>> AnalyzeAllEmails(UserEmailConfig config)
+    {
+        _logger.LogInformation("Starting to analyze all emails for {Email}", config.EmailAddress);
+        var results = new List<EmailAnalysisDto>();
+
+        try
+        {
+            var emails = await _emailService.FetchAllEmailsAsync(config);
+            return await ProcessEmails(emails, config);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during full email analysis for {Email}", config.EmailAddress);
+            throw;
+        }
+    }
 
     public async Task<bool> IsRejectionEmail(string emailContent)
     {
@@ -89,13 +105,16 @@ public class EmailAnalysisService : IEmailAnalysisService
                     IsRecognized = false
                 };
 
-                Job? matchedJob = null; // 添加这个变量来跟踪匹配到的工作
+                Job? matchedJob = null;
 
-                // 如果提取到了公司名称和职位名称
-                if (!string.IsNullOrWhiteSpace(jobInfo.CompanyName) && !string.IsNullOrWhiteSpace(jobInfo.JobTitle))
+                // 修改这里：如果有公司名称就继续处理，不要求必须有职位名称
+                if (!string.IsNullOrWhiteSpace(jobInfo.CompanyName))
                 {
+                    var searchJobTitle = string.IsNullOrWhiteSpace(jobInfo.JobTitle)
+                        ? "Unknown Position"
+                        : jobInfo.JobTitle;
                     var (isMatch, job, similarity) = await _jobMatchingService.FindMatchingJobAsync(
-                        jobInfo.JobTitle,
+                        searchJobTitle,
                         jobInfo.CompanyName);
 
                     if (isMatch && job != null)
@@ -124,8 +143,8 @@ public class EmailAnalysisService : IEmailAnalysisService
                         var perthTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, PerthTimeZone);
                         var newJob = new Job
                         {
-                            JobTitle = jobInfo.JobTitle ?? string.Empty,
-                            BusinessName = jobInfo.CompanyName ?? string.Empty,
+                            JobTitle = searchJobTitle,
+                            BusinessName = jobInfo.CompanyName,
                             CreatedAt = perthTime,
                             UpdatedAt = perthTime,
                             IsActive = true,
@@ -145,7 +164,6 @@ public class EmailAnalysisService : IEmailAnalysisService
                         {
                             newJob = await _jobRepository.CreateJobAsync(newJob);
 
-
                             var userJob = new UserJob
                             {
                                 UserId = config.UserId,
@@ -155,7 +173,6 @@ public class EmailAnalysisService : IEmailAnalysisService
                                 UpdatedAt = perthTime
                             };
                             await _userJobRepository.CreateUserJobAsync(userJob);
-
 
                             var analyzedEmail = new AnalyzedEmail
                             {
@@ -167,23 +184,13 @@ public class EmailAnalysisService : IEmailAnalysisService
                             };
                             await _analyzedEmailRepository.CreateAsync(analyzedEmail);
 
-
                             matchedJob = newJob;
-
-                            // 设置分析结果
-                            analysisResult.Job = new JobBasicInfo
-                            {
-                                Id = newJob.Id,
-                                JobTitle = newJob.JobTitle ?? string.Empty,
-                                BusinessName = newJob.BusinessName ?? string.Empty
-                            };
-                            analysisResult.IsRecognized = true;
                         }
                         catch (Exception ex)
                         {
                             _logger.LogError(ex, "Failed to create new job for {Company} - {Title}",
-                                jobInfo.CompanyName, jobInfo.JobTitle);
-                            throw; // 重新抛出异常，因为这是一个关键错误
+                                jobInfo.CompanyName, searchJobTitle);
+                            throw;
                         }
                     }
 
@@ -200,14 +207,7 @@ public class EmailAnalysisService : IEmailAnalysisService
                 }
                 else
                 {
-                    _logger.LogError("Failed to extract job information from email: {Subject}", email.Subject);
-                    results.Add(new EmailAnalysisDto
-                    {
-                        Subject = email.Subject,
-                        ReceivedDate = email.ReceivedDate,
-                        IsRecognized = false
-                    });
-                    continue;
+                    _logger.LogWarning("Could not extract company name from email: {Subject}", email.Subject);
                 }
 
                 results.Add(analysisResult);
@@ -215,7 +215,6 @@ public class EmailAnalysisService : IEmailAnalysisService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error analyzing email with subject: {Subject}", email.Subject);
-
                 results.Add(new EmailAnalysisDto
                 {
                     Subject = email.Subject,

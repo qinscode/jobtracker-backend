@@ -64,7 +64,12 @@ public class AIAnalysisService : IAIAnalysisService
 
             if (string.IsNullOrEmpty(result)) return false;
 
-            var jsonContent = result.Replace("json\n", "").Trim();
+            // 清理 markdown 代码块标记和多余的空白
+            var jsonContent = result
+                .Replace("```json", "")
+                .Replace("```", "")
+                .Trim();
+
             var jobInfo = JsonSerializer.Deserialize<JobInfo>(jsonContent);
             return jobInfo?.Status?.Equals("Rejected", StringComparison.OrdinalIgnoreCase) ?? false;
         }
@@ -82,10 +87,14 @@ public class AIAnalysisService : IAIAnalysisService
             var result = await CallGeminiApiWithRetry(emailContent);
             _logger.LogInformation("Gemini Analysis Result: {Result}", result);
 
-
             if (string.IsNullOrEmpty(result)) return ("", "");
 
-            var jsonContent = result.Replace("json\n", "").Trim();
+            // 清理 markdown 代码块标记和多余的空白
+            var jsonContent = result
+                .Replace("```json", "")
+                .Replace("```", "")
+                .Trim();
+
             var jobInfo = JsonSerializer.Deserialize<JobInfo>(jsonContent);
             return (jobInfo?.BusinessName ?? "", jobInfo?.JobTitle ?? "");
         }
@@ -161,6 +170,28 @@ public class AIAnalysisService : IAIAnalysisService
         _logger.LogInformation("Raw Gemini Response: {Response}", responseContent);
 
         var result = JsonSerializer.Deserialize<GeminiApiResponse>(responseContent);
+        _logger.LogInformation("Deserialized Response - Candidates Count: {Count}",
+            result?.Candidates?.Count ?? 0);
+
+        if (result?.Candidates != null && result.Candidates.Any())
+        {
+            var firstCandidate = result.Candidates.First();
+            _logger.LogInformation("First Candidate Content: {Content}",
+                JsonSerializer.Serialize(firstCandidate.Content));
+
+            if (firstCandidate.Content?.Parts != null)
+            {
+                _logger.LogInformation("Parts Count: {Count}",
+                    firstCandidate.Content.Parts.Count);
+
+                if (firstCandidate.Content.Parts.Any())
+                {
+                    var firstPart = firstCandidate.Content.Parts.First();
+                    _logger.LogInformation("First Part Text: {Text}",
+                        firstPart.Text);
+                }
+            }
+        }
 
         if (result?.Candidates == null || !result.Candidates.Any())
         {
@@ -195,16 +226,16 @@ public class AIAnalysisService : IAIAnalysisService
 
     private class Candidate
     {
-        [JsonPropertyName("content")] public Content? Content { get; }
+        [JsonPropertyName("content")] public Content? Content { get; set; }
     }
 
     private class Content
     {
-        [JsonPropertyName("parts")] public List<Part>? Parts { get; }
+        [JsonPropertyName("parts")] public List<Part>? Parts { get; set; }
     }
 
     private class Part
     {
-        [JsonPropertyName("text")] public string? Text { get; }
+        [JsonPropertyName("text")] public string? Text { get; set; }
     }
 }

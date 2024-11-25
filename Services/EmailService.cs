@@ -120,6 +120,57 @@ public class EmailService : IEmailService
         return messages;
     }
 
+    // 扫描所有邮件的方法
+    public async Task<IEnumerable<EmailMessage>> FetchAllEmailsAsync(UserEmailConfig config)
+    {
+        var messages = new List<EmailMessage>();
+
+        await _retryPolicy.ExecuteAsync(async () =>
+        {
+            using var emailClient = new ImapClient();
+            try
+            {
+                await ConnectWithTimeout(emailClient, config);
+                var inbox = emailClient.Inbox;
+                await inbox.OpenAsync(FolderAccess.ReadOnly);
+
+                var totalEmails = inbox.Count;
+
+                // 从最新的邮件开始处理
+                for (var i = totalEmails - 1; i >= 0; i--)
+                {
+                    // 每处理100封邮件记录一次日志
+                    if (i % 100 == 0)
+                    {
+                        _logger.LogInformation("Processing email {Current}/{Total} for {Email}",
+                            totalEmails - i, totalEmails, config.EmailAddress);
+                    }
+
+                    var message = await inbox.GetMessageAsync(i);
+
+                    // 检查是否已经分析过
+                    if (await _analyzedEmailRepository.ExistsAsync(config.Id, message.MessageId))
+                    {
+                        continue;
+                    }
+
+                    await ProcessEmailMessage(message, messages);
+
+                    // 每处理10封邮件暂停一下，避免过度消耗资源
+                    if (messages.Count % 10 == 0)
+                    {
+                        await Task.Delay(100);
+                    }
+                }
+            }
+            finally
+            {
+                if (emailClient.IsConnected) await emailClient.DisconnectAsync(true);
+            }
+        });
+
+        return messages;
+    }
 
     private async Task ConnectWithTimeout(ImapClient client, UserEmailConfig config)
     {

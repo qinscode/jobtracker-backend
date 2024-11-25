@@ -124,6 +124,28 @@ public class EmailConfigController : ControllerBase
         }
     }
 
+    [HttpPost("{id}/scan-all")]
+    public async Task<ActionResult<List<EmailAnalysisDto>>> ScanAllEmails(Guid id)
+    {
+        try
+        {
+            var config = await _configRepository.GetByIdAsync(id);
+            if (config == null) return NotFound("Email configuration not found");
+
+            _logger.LogInformation("Starting full email scan for config {Id}", id);
+            var results = await _emailAnalysisService.AnalyzeAllEmails(config);
+            _logger.LogInformation("Completed full email scan for config {Id}, found {Count} emails", id,
+                results.Count);
+
+            return Ok(results);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during full email scan for config {Id}", id);
+            return StatusCode(500, "An error occurred while scanning all emails");
+        }
+    }
+
     [HttpPost("analyze")]
     public async Task<IActionResult> AnalyzeEmails()
     {
