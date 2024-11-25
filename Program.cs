@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using JobTracker.Data;
 using JobTracker.Repositories;
 using JobTracker.Services;
+using JobTracker.Services.BackgroundServices;
 using JobTracker.Services.Interfaces;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -90,6 +91,12 @@ builder.Services.AddScoped<IEmailAnalysisService, EmailAnalysisService>();
 // Register services
 builder.Services.AddScoped<IJobMatchingService, JobMatchingService>();
 
+// 添加后台服务，直接设置60分钟间隔
+builder.Services.AddHostedService<EmailAnalysisBackgroundService>();
+builder.Services.Configure<EmailAnalysisBackgroundServiceOptions>(options =>
+{
+    options.IntervalMinutes = 60; // 直接设置为60分钟
+});
 
 var app = builder.Build();
 
