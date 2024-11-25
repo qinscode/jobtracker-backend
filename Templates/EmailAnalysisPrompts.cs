@@ -28,10 +28,7 @@ If the email is NOT job application-related, return an empty JSON object:
    - Application status (Status)
 
 2. Application status must be one of the following categories:
-   - Pending
-   - Archived
    - Reviewed
-   - Ghosting
    - Applied
    - Interviewing
    - TechnicalAssessment
