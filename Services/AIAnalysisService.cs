@@ -70,18 +70,35 @@ public class AIAnalysisService : IAIAnalysisService
         }
     }
 
-    public async Task<(string CompanyName, string JobTitle, UserJobStatus Status)> ExtractJobInfo(string emailContent)
+    public async
+        Task<(string CompanyName, string JobTitle, UserJobStatus Status, List<string> KeyPhrases, string?
+            SuggestedActions)> ExtractJobInfo(string emailContent)
     {
         try
         {
             var jobInfo = await AnalyzeEmail(emailContent);
             var status = ParseJobStatus(jobInfo?.Status);
-            return (jobInfo?.BusinessName ?? "", jobInfo?.JobTitle ?? "", status);
+
+            _logger.LogInformation(
+                "Extracted job info - Company: {Company}, Title: {Title}, Status: {Status}, KeyPhrases: {KeyPhrases}, SuggestedActions: {SuggestedActions}",
+                jobInfo?.BusinessName,
+                jobInfo?.JobTitle,
+                status,
+                jobInfo?.KeyPhrases != null ? string.Join(", ", jobInfo.KeyPhrases) : "none",
+                jobInfo?.SuggestedActions ?? "none");
+
+            return (
+                jobInfo?.BusinessName ?? "",
+                jobInfo?.JobTitle ?? "",
+                status,
+                jobInfo?.KeyPhrases ?? new List<string>(),
+                jobInfo?.SuggestedActions
+            );
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error extracting job info");
-            return ("", "", UserJobStatus.Applied);
+            return ("", "", UserJobStatus.Applied, new List<string>(), null);
         }
     }
 
@@ -128,22 +145,36 @@ public class AIAnalysisService : IAIAnalysisService
             return null;
         }
 
-        // 清理 markdown 代码块标记和多余的空白
-        var jsonContent = result
-            .Replace("```json", "")
-            .Replace("```", "")
-            .Trim();
+        try
+        {
+            // 清理 markdown 代码块标记和多余的空白
+            var jsonContent = result
+                .Replace("```json", "")
+                .Replace("```", "")
+                .Trim();
 
-        _logger.LogInformation("Cleaned JSON content: {JsonContent}", jsonContent);
+            _logger.LogInformation("Cleaned JSON content: {JsonContent}", jsonContent);
 
-        var jobInfo = JsonSerializer.Deserialize<JobInfo>(jsonContent);
-        _logger.LogInformation(
-            "Deserialized JobInfo - BusinessName: {BusinessName}, JobTitle: {JobTitle}, Status: {Status}",
-            jobInfo?.BusinessName,
-            jobInfo?.JobTitle,
-            jobInfo?.Status);
+            var options = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            };
 
-        return jobInfo;
+            var jobInfo = JsonSerializer.Deserialize<JobInfo>(jsonContent, options);
+            _logger.LogInformation(
+                "Deserialized JobInfo - BusinessName: {BusinessName}, JobTitle: {JobTitle}, Status: {Status}, SuggestedActions: {SuggestedActions}",
+                jobInfo?.BusinessName,
+                jobInfo?.JobTitle,
+                jobInfo?.Status,
+                jobInfo?.SuggestedActions);
+
+            return jobInfo;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deserializing JSON content: {Content}", result);
+            throw;
+        }
     }
 
     private async Task<string> CallGeminiApiWithRetry(string content)
@@ -214,25 +245,6 @@ public class AIAnalysisService : IAIAnalysisService
         _logger.LogInformation("Deserialized Response - Candidates Count: {Count}",
             result?.Candidates?.Count ?? 0);
 
-        if (result?.Candidates != null && result.Candidates.Any())
-        {
-            var firstCandidate = result.Candidates.First();
-            _logger.LogInformation("First Candidate Content: {Content}",
-                JsonSerializer.Serialize(firstCandidate.Content));
-
-            if (firstCandidate.Content?.Parts != null)
-            {
-                _logger.LogInformation("Parts Count: {Count}",
-                    firstCandidate.Content.Parts.Count);
-
-                if (firstCandidate.Content.Parts.Any())
-                {
-                    var firstPart = firstCandidate.Content.Parts.First();
-                    _logger.LogInformation("First Part Text: {Text}",
-                        firstPart.Text);
-                }
-            }
-        }
 
         if (result?.Candidates == null || !result.Candidates.Any())
         {
@@ -258,6 +270,10 @@ public class AIAnalysisService : IAIAnalysisService
         [JsonPropertyName("JobTitle")] public string? JobTitle { get; set; }
 
         [JsonPropertyName("Status")] public string? Status { get; set; }
+
+        [JsonPropertyName("KeyPhrases")] public List<string> KeyPhrases { get; set; } = new();
+
+        [JsonPropertyName("SuggestedActions")] public string? SuggestedActions { get; set; }
     }
 
     private class GeminiApiResponse

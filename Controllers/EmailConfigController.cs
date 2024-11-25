@@ -109,45 +109,6 @@ public class EmailConfigController : ControllerBase
         return Ok(new { message = "Email configuration deleted successfully" });
     }
 
-    [HttpPost("{id}/scan")]
-    public async Task<ActionResult<List<EmailAnalysisDto>>> ScanEmails(Guid id)
-    {
-        try
-        {
-            var config = await _configRepository.GetByIdAsync(id);
-            if (config == null) return NotFound();
-
-            var results = await _emailAnalysisService.AnalyzeRecentEmails(config);
-            return Ok(results);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error scanning emails for config {Id}", id);
-            return StatusCode(500, new MessageResponseDto { Message = "Error scanning emails" });
-        }
-    }
-
-    [HttpPost("{id}/scan-all")]
-    public async Task<ActionResult<List<EmailAnalysisDto>>> ScanAllEmails(Guid id)
-    {
-        try
-        {
-            var config = await _configRepository.GetByIdAsync(id);
-            if (config == null) return NotFound("Email configuration not found");
-
-            _logger.LogInformation("Starting full email scan for config {Id}", id);
-            var results = await _emailAnalysisService.AnalyzeAllEmails(config);
-            _logger.LogInformation("Completed full email scan for config {Id}, found {Count} emails", id,
-                results.Count);
-
-            return Ok(results);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error during full email scan for config {Id}", id);
-            return StatusCode(500, "An error occurred while scanning all emails");
-        }
-    }
 
     [HttpPost("{id}/scan-incremental")]
     public async Task<ActionResult<List<EmailAnalysisDto>>> ScanIncrementalEmails(Guid id)
@@ -157,19 +118,36 @@ public class EmailConfigController : ControllerBase
             var config = await _configRepository.GetByIdAsync(id);
             if (config == null) return NotFound("Email configuration not found");
 
-            // 获取最后分析的 UID
             var lastUid = await _analyzedEmailRepository.GetLastAnalyzedUidAsync(config.Id);
 
             _logger.LogInformation("Starting incremental email scan for config {Id} from UID {LastUid}", id,
                 lastUid ?? 0);
 
-            // 调用增量扫描服务
             var results = await _emailAnalysisService.AnalyzeIncrementalEmails(config, lastUid);
 
             _logger.LogInformation("Completed incremental email scan for config {Id}, found {Count} new emails",
                 id, results.Count);
 
-            return Ok(results);
+            // 格式化响应，包含新的字段
+            var response = results.Select(r => new
+            {
+                r.Subject,
+                r.ReceivedDate,
+                r.IsRecognized,
+                Job = r.Job == null
+                    ? null
+                    : new
+                    {
+                        r.Job.Id,
+                        r.Job.JobTitle,
+                        r.Job.BusinessName
+                    },
+                Status = r.Status.ToString(),
+                r.KeyPhrases,
+                r.SuggestedActions
+            });
+
+            return Ok(response);
         }
         catch (Exception ex)
         {
@@ -193,13 +171,32 @@ public class EmailConfigController : ControllerBase
                 allResults.AddRange(results);
             }
 
-            return Ok(new
+            // 格式化响应，包含新的字段
+            var response = new
             {
                 message = "Email analysis completed",
                 totalEmails = allResults.Count,
                 recognizedEmails = allResults.Count(r => r.IsRecognized),
-                results = allResults.OrderByDescending(r => r.ReceivedDate)
-            });
+                results = allResults.Select(r => new
+                {
+                    r.Subject,
+                    r.ReceivedDate,
+                    r.IsRecognized,
+                    Job = r.Job == null
+                        ? null
+                        : new
+                        {
+                            r.Job.Id,
+                            r.Job.JobTitle,
+                            r.Job.BusinessName
+                        },
+                    Status = r.Status.ToString(),
+                    r.KeyPhrases,
+                    r.SuggestedActions
+                }).OrderByDescending(r => r.ReceivedDate)
+            };
+
+            return Ok(response);
         }
         catch (Exception ex)
         {

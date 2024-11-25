@@ -16,12 +16,14 @@ namespace JobTracker.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IConfiguration _configuration;
+    private readonly ILogger<AuthController> _logger;
     private readonly IUserRepository _userRepository;
 
-    public AuthController(IUserRepository userRepository, IConfiguration configuration)
+    public AuthController(IUserRepository userRepository, IConfiguration configuration, ILogger<AuthController> logger)
     {
         _userRepository = userRepository;
         _configuration = configuration;
+        _logger = logger;
     }
 
     [HttpPost("login")]
@@ -65,10 +67,7 @@ public class AuthController : ControllerBase
     [HttpPost("google")]
     public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginModel model)
     {
-        if (!ModelState.IsValid)
-        {
-            return BadRequest(ModelState);
-        }
+        if (!ModelState.IsValid) return BadRequest(ModelState);
 
         try
         {
@@ -77,10 +76,7 @@ public class AuthController : ControllerBase
                 new AuthenticationHeaderValue("Bearer", model.access_token);
             var response = await httpClient.GetAsync("https://www.googleapis.com/oauth2/v3/userinfo");
 
-            if (!response.IsSuccessStatusCode)
-            {
-                return Unauthorized(new { message = "Invalid access token" });
-            }
+            if (!response.IsSuccessStatusCode) return Unauthorized(new { message = "Invalid access token" });
 
             var content = await response.Content.ReadAsStringAsync();
 
@@ -93,9 +89,7 @@ public class AuthController : ControllerBase
 
 
             if (googleUser == null || string.IsNullOrEmpty(googleUser.Email))
-            {
                 return BadRequest(new { message = "Email is required and was not provided by Google" });
-            }
 
             var user = await _userRepository.GetUserByEmailAsync(googleUser.Email);
 
@@ -119,6 +113,7 @@ public class AuthController : ControllerBase
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "An unexpected error occurred");
             return StatusCode(500, new { message = "An unexpected error occurred" });
         }
     }

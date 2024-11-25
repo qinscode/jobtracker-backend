@@ -28,6 +28,9 @@ public class JobMatchingService : IJobMatchingService
         var bestMatch = (Job?)null;
         var bestScore = 0.0;
 
+        _logger.LogInformation("Finding matches for Job Title: '{JobTitle}', Company: '{CompanyName}'",
+            jobTitle, companyName);
+
         foreach (var job in matchingJobs)
         {
             // 计算公司名称相似度
@@ -39,18 +42,27 @@ public class JobMatchingService : IJobMatchingService
             // 综合得分
             var combinedScore = (companyScore + titleScore) / 2.0;
 
+            _logger.LogInformation(
+                "Comparing with existing job - ID: {JobId}, Title: '{JobTitle}', Company: '{Company}' - " +
+                "Company Score: {CompanyScore}, Title Score: {TitleScore}, Combined Score: {CombinedScore}",
+                job.Id, job.JobTitle, job.BusinessName, companyScore, titleScore, combinedScore);
 
             if (companyScore >= MinimumSimilarity && combinedScore > bestScore)
             {
                 bestMatch = job;
                 bestScore = combinedScore;
+                _logger.LogInformation("New best match found - Score: {Score}", bestScore);
             }
         }
 
         var isMatch = bestMatch != null;
+        var finalSimilarity = bestScore / 100.0; // 转换为 0-1 范围
 
+        _logger.LogInformation(
+            "Match result - IsMatch: {IsMatch}, Final Similarity: {Similarity}, Matched Job ID: {JobId}",
+            isMatch, finalSimilarity, bestMatch?.Id);
 
-        return (isMatch, bestMatch, bestScore / 100.0); // 转换为 0-1 范围
+        return (isMatch, bestMatch, finalSimilarity);
     }
 
     public double CalculateSimilarity(string s1, string s2)
@@ -144,6 +156,9 @@ public class JobMatchingService : IJobMatchingService
     {
         if (string.IsNullOrEmpty(company1)) return 0;
 
+        _logger.LogInformation("Calculating company similarity between '{Company1}' and '{Company2}'",
+            company1, company2);
+
         // 预处理
         company1 = company1.ToLower();
         company2 = company2.ToLower();
@@ -170,35 +185,68 @@ public class JobMatchingService : IJobMatchingService
         var tokenSetRatio = Fuzz.TokenSetRatio(company1, company2);
         var tokenSortRatio = Fuzz.TokenSortRatio(company1, company2);
 
-        // 如果有完全匹配的部分，给予更高的权重
-        if (partialRatio > 95) return partialRatio;
+        _logger.LogInformation(
+            "Company similarity scores - Ratio: {Ratio}, PartialRatio: {PartialRatio}, " +
+            "TokenSetRatio: {TokenSetRatio}, TokenSortRatio: {TokenSortRatio}",
+            ratio, partialRatio, tokenSetRatio, tokenSortRatio);
 
-        // 加权平均，给予 token 相关的比较更高的权重
-        return (ratio + partialRatio * 2 + tokenSetRatio * 3 + tokenSortRatio * 2) / 8.0;
+        // 如果有完全匹配的部分，给予更高的权重
+        if (partialRatio > 95)
+        {
+            _logger.LogInformation("High partial match found for companies, using partial ratio: {Score}",
+                partialRatio);
+            return partialRatio;
+        }
+
+        // 加权平均
+        var finalScore = (ratio + partialRatio * 2 + tokenSetRatio * 3 + tokenSortRatio * 2) / 8.0;
+        _logger.LogInformation("Final company similarity score: {Score}", finalScore);
+        return finalScore;
     }
 
     private double CalculateTitleScore(string? title1, string title2)
     {
         if (string.IsNullOrEmpty(title1)) return 0;
 
+        _logger.LogInformation("Calculating title similarity between '{Title1}' and '{Title2}'",
+            title1, title2);
+
         // 预处理
         title1 = title1.ToLower();
         title2 = title2.ToLower();
 
-        // 移除常见词
+        _logger.LogInformation("Original titles - Title1: '{Title1}', Title2: '{Title2}'",
+            title1, title2);
+
+        // 扩展常见修饰词列表
         var commonTerms = new[]
         {
-            "senior", "junior", "lead", "principal",
+            "senior", "junior", "lead", "principal", "staff",
             "manager", "specialist", "analyst", "consultant",
             "applications", "application", "technical", "developer",
-            "engineer", "level", "grade", "i", "ii", "iii", "iv", "v"
+            "engineer", "level", "grade", "i", "ii", "iii", "iv", "v",
+            "associate", "mid", "intermediate", "entry", "level",
+            "graduate", "experienced", "head", "chief", "director",
+            "architect", "sr", "jr", "trainee", "intern"
         };
 
+        // 移除修饰词
         foreach (var term in commonTerms)
         {
-            title1 = title1.Replace($" {term}", "").Replace($"{term} ", "");
-            title2 = title2.Replace($" {term}", "").Replace($"{term} ", "");
+            title1 = title1.Replace($" {term} ", " ")
+                .Replace($" {term}", "")
+                .Replace($"{term} ", "");
+            title2 = title2.Replace($" {term} ", " ")
+                .Replace($" {term}", "")
+                .Replace($"{term} ", "");
         }
+
+        _logger.LogInformation("Cleaned titles - Title1: '{Title1}', Title2: '{Title2}'",
+            title1, title2);
+
+        // 清理多余空格
+        title1 = string.Join(" ", title1.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries));
+        title2 = string.Join(" ", title2.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries));
 
         // 计算不同类型的相似度
         var ratio = Fuzz.Ratio(title1, title2);
@@ -206,10 +254,22 @@ public class JobMatchingService : IJobMatchingService
         var tokenSetRatio = Fuzz.TokenSetRatio(title1, title2);
         var tokenSortRatio = Fuzz.TokenSortRatio(title1, title2);
 
-        // 如果有完全匹配的部分，给予更高的权重
-        if (partialRatio > 95) return partialRatio;
+        _logger.LogInformation(
+            "Title similarity scores - Ratio: {Ratio}, PartialRatio: {PartialRatio}, " +
+            "TokenSetRatio: {TokenSetRatio}, TokenSortRatio: {TokenSortRatio}",
+            ratio, partialRatio, tokenSetRatio, tokenSortRatio);
 
-        // 加权平均，给予 token 相关的比较更高的权重
-        return (ratio + partialRatio * 2 + tokenSetRatio * 3 + tokenSortRatio * 2) / 8.0;
+        // 如果有完全匹配的部分，给予更高的权重
+        if (partialRatio > 95)
+        {
+            _logger.LogInformation("High partial match found for titles, using partial ratio: {Score}",
+                partialRatio);
+            return partialRatio;
+        }
+
+        // 加权平均
+        var finalScore = (ratio + partialRatio * 2 + tokenSetRatio * 3 + tokenSortRatio * 2) / 8.0;
+        _logger.LogInformation("Final title similarity score: {Score}", finalScore);
+        return finalScore;
     }
 }
