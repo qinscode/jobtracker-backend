@@ -245,25 +245,6 @@ public class AIAnalysisService : IAIAnalysisService
         _logger.LogInformation("Deserialized Response - Candidates Count: {Count}",
             result?.Candidates?.Count ?? 0);
 
-        if (result?.Candidates != null && result.Candidates.Any())
-        {
-            var firstCandidate = result.Candidates.First();
-            _logger.LogInformation("First Candidate Content: {Content}",
-                JsonSerializer.Serialize(firstCandidate.Content));
-
-            if (firstCandidate.Content?.Parts != null)
-            {
-                _logger.LogInformation("Parts Count: {Count}",
-                    firstCandidate.Content.Parts.Count);
-
-                if (firstCandidate.Content.Parts.Any())
-                {
-                    var firstPart = firstCandidate.Content.Parts.First();
-                    _logger.LogInformation("First Part Text: {Text}",
-                        firstPart.Text);
-                }
-            }
-        }
 
         if (result?.Candidates == null || !result.Candidates.Any())
         {
