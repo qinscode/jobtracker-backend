@@ -86,5 +86,14 @@ public class JobTrackerContext : DbContext
             .Property(e => e.KeyPhrases)
             .HasColumnType("text[]")
             .HasDefaultValue(Array.Empty<string>());
+
+        modelBuilder.Entity<Job>()
+            .Property(j => j.TechStack)
+            .HasConversion(
+                v => string.Join(',', v ?? Array.Empty<string>()),
+                v => string.IsNullOrEmpty(v)
+                    ? Array.Empty<string>()
+                    : v.Split(',', StringSplitOptions.RemoveEmptyEntries)
+            );
     }
 }
