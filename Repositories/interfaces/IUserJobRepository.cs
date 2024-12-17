@@ -18,10 +18,10 @@ public interface IUserJobRepository
     Task<int> GetUserJobsCountByUserIdAndStatusAsync(Guid userId, UserJobStatus status);
     Task<IEnumerable<UserJob>> GetRecentUserJobsAsync(Guid userId, int count, UserJobStatus[] statuses);
 
-    Task<IEnumerable<Job>> GetJobsByUserIdAndStatusAsync(Guid userId, UserJobStatus status, int pageNumber,
+    Task<IEnumerable<Job>> GetJobsByUserIdAndStatusAsync(Guid userId, UserJobStatus? status, int pageNumber,
         int pageSize);
 
-    Task<int> GetJobsCountByUserIdAndStatusAsync(Guid userId, UserJobStatus status);
+    Task<int> GetJobsCountByUserIdAndStatusAsync(Guid userId, UserJobStatus? status);
 
     Task<Dictionary<UserJobStatus, int>> GetUserJobStatusCountsAsync(Guid userId);
     Task<int> GetTotalJobsCountAsync();
@@ -43,4 +43,12 @@ public interface IUserJobRepository
     Task<IEnumerable<SuburbCountDto>> GetSuburbCountsAsync(Guid userId);
 
     Task<List<UserJob>> GetUserJobsByJobIdAsync(int jobId);
+
+    Task<(IEnumerable<UserJob> Jobs, int TotalCount)> GetMyUserJobsByUserIdAsync(
+        Guid userId,
+        string? status = null,
+        int pageNumber = 1,
+        int pageSize = 10,
+        string? sortBy = null,
+        bool sortDescending = true);
 }

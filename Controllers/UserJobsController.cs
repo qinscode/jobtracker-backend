@@ -14,13 +14,15 @@ public class UserJobsController : ControllerBase
     private readonly IJobRepository _jobRepository;
     private readonly IUserJobRepository _userJobRepository;
     private readonly IUserRepository _userRepository;
+    private readonly ILogger<UserJobsController> _logger;
 
     public UserJobsController(IUserJobRepository userJobRepository, IUserRepository userRepository,
-        IJobRepository jobRepository)
+        IJobRepository jobRepository, ILogger<UserJobsController> logger)
     {
         _userJobRepository = userJobRepository;
         _userRepository = userRepository;
         _jobRepository = jobRepository;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -355,6 +357,75 @@ public class UserJobsController : ControllerBase
         return Ok(counts);
     }
 
+    [HttpGet("my")]
+    public async Task<ActionResult<JobsResponseDto>> GetMyUserJobs(
+        [FromQuery] string? searchTerm = null,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10)
+    {
+        var userGuid = GetUserIdFromToken();
+
+        // 如果提供了搜索词，使用搜索方法
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var jobs = await _userJobRepository.SearchJobsByTitleAsync(userGuid, searchTerm, null, pageNumber,
+                pageSize);
+            var totalCount = await _userJobRepository.CountJobsByTitleAsync(userGuid, searchTerm, null);
+
+            var response = new JobsResponseDto
+            {
+                Jobs = jobs.Select(j => new JobDto
+                {
+                    Id = j.Id,
+                    JobTitle = j.JobTitle ?? "",
+                    BusinessName = j.BusinessName ?? "",
+                    WorkType = j.WorkType ?? "",
+                    JobType = j.JobType ?? "",
+                    PayRange = j.PayRange ?? "",
+                    Suburb = j.Suburb ?? "",
+                    Area = j.Area ?? "",
+                    Url = j.Url ?? "",
+                    Status = GetJobStatus(userGuid, j.Id), // 获取当前用户对该工作的状态
+                    PostedDate = j.PostedDate?.ToString("yyyy-MM-dd") ?? "",
+                    JobDescription = j.JobDescription ?? ""
+                }),
+                TotalCount = totalCount,
+                PageNumber = pageNumber,
+                PageSize = pageSize
+            };
+
+            return Ok(response);
+        }
+
+        // 如果没有搜索词，获取所有工作
+        var regularJobs = await _userJobRepository.GetJobsByUserIdAndStatusAsync(userGuid, null, pageNumber, pageSize);
+        var regularTotalCount = await _userJobRepository.GetJobsCountByUserIdAndStatusAsync(userGuid, null);
+
+        var regularResponse = new JobsResponseDto
+        {
+            Jobs = regularJobs.Select(j => new JobDto
+            {
+                Id = j.Id,
+                JobTitle = j.JobTitle ?? "",
+                BusinessName = j.BusinessName ?? "",
+                WorkType = j.WorkType ?? "",
+                JobType = j.JobType ?? "",
+                PayRange = j.PayRange ?? "",
+                Suburb = j.Suburb ?? "",
+                Area = j.Area ?? "",
+                Url = j.Url ?? "",
+                Status = GetJobStatus(userGuid, j.Id), // 获取当前用户对该工作的状态
+                PostedDate = j.PostedDate?.ToString("yyyy-MM-dd") ?? "",
+                JobDescription = j.JobDescription ?? ""
+            }),
+            TotalCount = regularTotalCount,
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        };
+
+        return Ok(regularResponse);
+    }
+
     private Guid GetUserIdFromToken()
     {
         var token = HttpContext.Request.Headers["Authorization"].FirstOrDefault()?.Split(" ").Last();
@@ -423,5 +494,12 @@ public class UserJobsController : ControllerBase
         userJob.JobId = updateUserJobDto.JobId;
         userJob.Status = updateUserJobDto.Status;
         userJob.UpdatedAt = DateTime.UtcNow;
+    }
+
+    // 辅助方法：获取用户对特定工作的状态
+    private string GetJobStatus(Guid userId, int jobId)
+    {
+        var userJob = _userJobRepository.GetUserJobByUserIdAndJobIdAsync(userId, jobId).Result;
+        return userJob?.Status.ToString() ?? "New";
     }
 }

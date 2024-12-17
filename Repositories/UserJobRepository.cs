@@ -95,13 +95,25 @@ public class UserJobRepository : IUserJobRepository
             .ToListAsync();
     }
 
-    public async Task<IEnumerable<Job>> GetJobsByUserIdAndStatusAsync(Guid userId, UserJobStatus status, int pageNumber,
+    public async Task<IEnumerable<Job>> GetJobsByUserIdAndStatusAsync(
+        Guid userId,
+        UserJobStatus? status,
+        int pageNumber,
         int pageSize)
     {
-        var jobs = await _context.UserJobs
-            .Where(uj => uj.UserId == userId && uj.Status == status)
+        var query = _context.UserJobs
+            .Where(uj => uj.UserId == userId)
+            .Include(uj => uj.Job)
+            .Where(uj => uj.Job != null);
+
+        if (status.HasValue)
+        {
+            query = query.Where(uj => uj.Status == status.Value);
+        }
+
+        var jobs = await query
             .Select(uj => uj.Job)
-            .Where(j => j != null)
+            .OrderByDescending(j => j != null ? j.CreatedAt : DateTime.MinValue)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
@@ -109,10 +121,21 @@ public class UserJobRepository : IUserJobRepository
         return jobs.Where(j => j != null).Cast<Job>();
     }
 
-    public async Task<int> GetJobsCountByUserIdAndStatusAsync(Guid userId, UserJobStatus status)
+    public async Task<int> GetJobsCountByUserIdAndStatusAsync(
+        Guid userId,
+        UserJobStatus? status)
     {
-        return await _context.UserJobs
-            .CountAsync(uj => uj.UserId == userId && uj.Status == status);
+        var query = _context.UserJobs
+            .Where(uj => uj.UserId == userId)
+            .Include(uj => uj.Job)
+            .Where(uj => uj.Job != null);
+
+        if (status.HasValue)
+        {
+            query = query.Where(uj => uj.Status == status.Value);
+        }
+
+        return await query.CountAsync();
     }
 
     public async Task<Dictionary<UserJobStatus, int>> GetUserJobStatusCountsAsync(Guid userId)
@@ -212,7 +235,7 @@ public class UserJobRepository : IUserJobRepository
             .Select(g => new { Date = g.Key, Count = g.Count() })
             .ToListAsync();
 
-        // 确保所有日期都有数据，即使是0
+        // 确保所有日期都有数据���即使是0
         var result = new List<(DateTime Date, int Count)>();
         for (var date = startDate; date <= DateTime.UtcNow.Date; date = date.AddDays(1))
         {
@@ -316,5 +339,55 @@ public class UserJobRepository : IUserJobRepository
         return await _context.UserJobs
             .Where(uj => uj.JobId == jobId)
             .ToListAsync();
+    }
+
+    public async Task<(IEnumerable<UserJob> Jobs, int TotalCount)> GetMyUserJobsByUserIdAsync(
+        Guid userId,
+        string? status = null,
+        int pageNumber = 1,
+        int pageSize = 10,
+        string? sortBy = null,
+        bool sortDescending = true)
+    {
+        var query = _context.UserJobs
+            .Include(uj => uj.Job)
+            .Where(uj => uj.UserId == userId);
+
+        // 应用状态筛选
+        if (!string.IsNullOrEmpty(status) && Enum.TryParse<UserJobStatus>(status, true, out var statusEnum))
+        {
+            query = query.Where(uj => uj.Status == statusEnum);
+        }
+
+        // 获取总记录数
+        var totalCount = await query.CountAsync();
+
+        // 应用排序
+        query = sortBy?.ToLower() switch
+        {
+            "jobtitle" => sortDescending
+                ? query.OrderByDescending(uj => uj.Job != null ? uj.Job.JobTitle : string.Empty)
+                : query.OrderBy(uj => uj.Job != null ? uj.Job.JobTitle : string.Empty),
+            "company" => sortDescending
+                ? query.OrderByDescending(uj => uj.Job != null ? uj.Job.BusinessName : string.Empty)
+                : query.OrderBy(uj => uj.Job != null ? uj.Job.BusinessName : string.Empty),
+            "status" => sortDescending
+                ? query.OrderByDescending(uj => uj.Status)
+                : query.OrderBy(uj => uj.Status),
+            "createdat" => sortDescending
+                ? query.OrderByDescending(uj => uj.CreatedAt)
+                : query.OrderBy(uj => uj.CreatedAt),
+            _ => sortDescending // default: updatedAt
+                ? query.OrderByDescending(uj => uj.UpdatedAt)
+                : query.OrderBy(uj => uj.UpdatedAt)
+        };
+
+        // 应用分页
+        var jobs = await query
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return (jobs, totalCount);
     }
 }
