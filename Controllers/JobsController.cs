@@ -58,12 +58,37 @@ public class JobsController : ControllerBase
     }
 
     [HttpGet("search")]
-    public async Task<ActionResult<JobSearchResult>> SearchJobs([FromQuery] JobSearchParams searchParams)
+    public async Task<ActionResult<JobSearchResultDto>> SearchJobs([FromQuery] JobSearchParams searchParams)
     {
         try
         {
             _logger.LogInformation("Searching jobs with params: {@SearchParams}", searchParams);
-            var result = await _jobMatchingService.SearchJobsAsync(searchParams);
+            var searchResult = await _jobMatchingService.SearchJobsAsync(searchParams);
+
+            var result = new JobSearchResultDto
+            {
+                Jobs = searchResult.Jobs?.Select(j => new JobDto
+                {
+                    Id = j.Id,
+                    JobTitle = j.JobTitle ?? "",
+                    BusinessName = j.BusinessName ?? "",
+                    WorkType = j.WorkType ?? "",
+                    JobType = j.JobType ?? "",
+                    PayRange = j.PayRange ?? "",
+                    MinSalary = j.MinSalary ?? 0,
+                    MaxSalary = j.MaxSalary ?? 0,
+                    Suburb = j.Suburb ?? "",
+                    Area = j.Area ?? "",
+                    Url = j.Url ?? "",
+                    PostedDate = j.PostedDate?.ToString("yyyy-MM-dd") ?? "",
+                    JobDescription = j.JobDescription ?? "",
+                    TechStack = j.TechStack ?? Array.Empty<string>()
+                }),
+                TotalCount = searchResult.TotalCount,
+                PageNumber = searchResult.PageNumber,
+                PageSize = searchResult.PageSize
+            };
+
             return Ok(result);
         }
         catch (Exception ex)
@@ -327,6 +352,14 @@ public class JobsController : ControllerBase
         public string Date { get; set; } = string.Empty;
         public int Count { get; set; }
     }
+}
+
+public class JobSearchResultDto
+{
+    public IEnumerable<JobDto>? Jobs { get; set; }
+    public int TotalCount { get; set; }
+    public int PageNumber { get; set; }
+    public int PageSize { get; set; }
 }
 
 public class UpdateJobStatusDto
