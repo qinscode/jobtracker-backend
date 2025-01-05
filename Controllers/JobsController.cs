@@ -232,6 +232,8 @@ public class JobsController : ControllerBase
             WorkType = j.WorkType ?? string.Empty,
             JobType = j.JobType ?? string.Empty,
             PayRange = j.PayRange ?? string.Empty,
+            MinSalary = j.MinSalary ?? 0,
+            MaxSalary = j.MaxSalary ?? 0,
             Suburb = j.Suburb ?? string.Empty,
             Area = j.Area ?? string.Empty,
             Url = j.Url ?? string.Empty,

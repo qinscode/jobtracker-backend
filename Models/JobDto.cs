@@ -8,6 +8,8 @@ public class JobDto
     public string WorkType { get; set; } = string.Empty;
     public string JobType { get; set; } = string.Empty;
     public string PayRange { get; set; } = string.Empty;
+    public int MinSalary { get; set; } = 0;
+    public int MaxSalary { get; set; } = 0;
     public string Suburb { get; set; } = string.Empty;
     public string Area { get; set; } = string.Empty;
     public string Url { get; set; } = string.Empty;
