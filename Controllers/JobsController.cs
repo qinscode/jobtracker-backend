@@ -236,6 +236,7 @@ public class JobsController : ControllerBase
             Area = j.Area ?? string.Empty,
             Url = j.Url ?? string.Empty,
             IsNew = true,
+            TechStack = j.TechStack ?? Array.Empty<string>(),
             PostedDate = j.PostedDate?.ToString("yyyy-MM-dd") ?? string.Empty,
             JobDescription = j.JobDescription ?? string.Empty
         });

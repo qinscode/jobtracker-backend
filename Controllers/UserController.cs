@@ -7,11 +7,11 @@ namespace JobTracker.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class UsersController : ControllerBase
+public class UserController : ControllerBase
 {
     private readonly IUserRepository _userRepository;
 
-    public UsersController(IUserRepository userRepository)
+    public UserController(IUserRepository userRepository)
     {
         _userRepository = userRepository;
     }

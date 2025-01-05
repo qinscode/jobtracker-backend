@@ -38,7 +38,7 @@ public class AuthController : ControllerBase
 
         var token = GenerateJwtToken(user);
 
-        return Ok(new { Token = token });
+        return Ok(new { access_token = token });
     }
 
     [HttpPost("register")]
@@ -61,7 +61,7 @@ public class AuthController : ControllerBase
 
         var token = GenerateJwtToken(newUser);
 
-        return Ok(new { Token = token });
+        return Ok(new { access_token = token });
     }
 
     [HttpPost("google")]
@@ -109,7 +109,7 @@ public class AuthController : ControllerBase
 
             var token = GenerateJwtToken(user);
 
-            return Ok(new { Token = token });
+            return Ok(new { access_token = token });
         }
         catch (Exception ex)
         {

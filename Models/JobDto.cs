@@ -15,4 +15,5 @@ public class JobDto
     public string PostedDate { get; set; } = string.Empty;
     public string JobDescription { get; set; } = string.Empty;
     public bool IsNew { get; set; } = false;
+    public string[] TechStack { get; set; } = Array.Empty<string>();
 }

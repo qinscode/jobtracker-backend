@@ -12,9 +12,9 @@ namespace JobTracker.Controllers;
 public class UserJobsController : ControllerBase
 {
     private readonly IJobRepository _jobRepository;
+    private readonly ILogger<UserJobsController> _logger;
     private readonly IUserJobRepository _userJobRepository;
     private readonly IUserRepository _userRepository;
-    private readonly ILogger<UserJobsController> _logger;
 
     public UserJobsController(IUserJobRepository userJobRepository, IUserRepository userRepository,
         IJobRepository jobRepository, ILogger<UserJobsController> logger)
@@ -155,7 +155,6 @@ public class UserJobsController : ControllerBase
     {
         var userGuid = GetUserIdFromToken();
 
-
         // 如果提供了搜索词，使用搜索方法
         if (!string.IsNullOrWhiteSpace(searchTerm))
         {
@@ -178,7 +177,8 @@ public class UserJobsController : ControllerBase
                     Url = j.Url ?? "",
                     Status = status.ToString(),
                     PostedDate = j.PostedDate?.ToString("yyyy-MM-dd") ?? "",
-                    JobDescription = j.JobDescription ?? ""
+                    JobDescription = j.JobDescription ?? "",
+                    TechStack = j.TechStack ?? Array.Empty<string>()
                 }),
                 TotalCount = totalCount,
                 PageNumber = pageNumber,
@@ -208,13 +208,13 @@ public class UserJobsController : ControllerBase
                 Url = j.Url ?? "",
                 Status = status.ToString(),
                 PostedDate = j.PostedDate?.ToString("yyyy-MM-dd") ?? "",
-                JobDescription = j.JobDescription ?? ""
+                JobDescription = j.JobDescription ?? "",
+                TechStack = j.TechStack ?? Array.Empty<string>()
             }),
             TotalCount = regularTotalCount,
             PageNumber = pageNumber,
             PageSize = pageSize
         };
-
 
         return Ok(regularResponse);
     }
@@ -385,9 +385,10 @@ public class UserJobsController : ControllerBase
                     Suburb = j.Suburb ?? "",
                     Area = j.Area ?? "",
                     Url = j.Url ?? "",
-                    Status = GetJobStatus(userGuid, j.Id), // 获取当前用户对该工作的状态
+                    Status = GetJobStatus(userGuid, j.Id),
                     PostedDate = j.PostedDate?.ToString("yyyy-MM-dd") ?? "",
-                    JobDescription = j.JobDescription ?? ""
+                    JobDescription = j.JobDescription ?? "",
+                    TechStack = j.TechStack ?? Array.Empty<string>()
                 }),
                 TotalCount = totalCount,
                 PageNumber = pageNumber,
@@ -414,9 +415,10 @@ public class UserJobsController : ControllerBase
                 Suburb = j.Suburb ?? "",
                 Area = j.Area ?? "",
                 Url = j.Url ?? "",
-                Status = GetJobStatus(userGuid, j.Id), // 获取当前用户对该工作的状态
+                Status = GetJobStatus(userGuid, j.Id),
                 PostedDate = j.PostedDate?.ToString("yyyy-MM-dd") ?? "",
-                JobDescription = j.JobDescription ?? ""
+                JobDescription = j.JobDescription ?? "",
+                TechStack = j.TechStack ?? Array.Empty<string>()
             }),
             TotalCount = regularTotalCount,
             PageNumber = pageNumber,
