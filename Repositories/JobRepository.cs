@@ -17,7 +17,7 @@ public class JobRepository : IJobRepository
     public async Task<IEnumerable<Job>> GetJobsAsync(int pageNumber, int pageSize)
     {
         return await _context.Jobs
-            .Where(j => j.IsActive == true)
+            .Where(j => j.IsActive == true && j.IsUserCreated == false)
             .OrderByDescending(j => j.CreatedAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
@@ -32,7 +32,7 @@ public class JobRepository : IJobRepository
     public async Task<IEnumerable<Job>> GetActiveJobsAsync(int pageNumber, int pageSize)
     {
         return await _context.Jobs
-            .Where(j => j.IsActive == true)
+            .Where(j => j.IsActive == true && j.IsUserCreated == false)
             .OrderByDescending(j => j.CreatedAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
@@ -42,7 +42,7 @@ public class JobRepository : IJobRepository
     public async Task<int> GetActiveJobsCountAsync()
     {
         return await _context.Jobs
-            .Where(j => j.IsActive == true)
+            .Where(j => j.IsActive == true && j.IsUserCreated == false)
             .CountAsync();
     }
 
@@ -78,7 +78,7 @@ public class JobRepository : IJobRepository
     public async Task<IEnumerable<Job>> GetNewJobsAsync(int pageNumber, int pageSize)
     {
         return await _context.Jobs
-            .Where(j => j.IsNew == true && j.IsActive == true)
+            .Where(j => j.IsNew == true && j.IsActive == true && j.IsUserCreated == false)
             .OrderByDescending(j => j.CreatedAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
@@ -88,7 +88,7 @@ public class JobRepository : IJobRepository
     public async Task<int> GetNewJobsCountAsync()
     {
         return await _context.Jobs
-            .Where(j => j.IsNew == true && j.IsActive == true)
+            .Where(j => j.IsNew == true && j.IsActive == true && j.IsUserCreated == false)
             .CountAsync();
     }
 
@@ -96,7 +96,7 @@ public class JobRepository : IJobRepository
     {
         return await _context.Jobs
             .Where(j => j.JobTitle != null && EF.Functions.ILike(j.JobTitle, $"%{searchTerm}%"))
-            .Where(j => j.IsActive == true)
+            .Where(j => j.IsActive == true && j.IsUserCreated == false)
             .OrderByDescending(j => j.CreatedAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
@@ -107,7 +107,7 @@ public class JobRepository : IJobRepository
     {
         return await _context.Jobs
             .Where(j => j.JobTitle != null && EF.Functions.ILike(j.JobTitle, $"%{searchTerm}%"))
-            .Where(j => j.IsActive == true)
+            .Where(j => j.IsActive == true && j.IsUserCreated == false)
             .CountAsync();
     }
 
@@ -145,7 +145,8 @@ public class JobRepository : IJobRepository
 
         // 构建查询 - 先精确匹配职位
         var query = _context.Jobs
-            .Where(j => j.JobTitle != null && EF.Functions.ILike(j.JobTitle, $"%{jobTitle}%"))
+            .Where(j => j.JobTitle != null && j.IsUserCreated == false &&
+                        EF.Functions.ILike(j.JobTitle, $"%{jobTitle}%"))
             .AsQueryable();
 
         // 然后在职位匹配的结果中搜索公司
@@ -183,7 +184,8 @@ public class JobRepository : IJobRepository
 
         var jobCounts = await _context.Jobs
             .Where(j => j.PostedDate.HasValue &&
-                        j.PostedDate.Value.Date >= startDate)
+                        j.PostedDate.Value.Date >= startDate &&
+                        j.IsUserCreated == false)
             .GroupBy(j => j.PostedDate!.Value.Date)
             .Select(g => new { Date = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.Date, x => x.Count);
@@ -200,7 +202,7 @@ public class JobRepository : IJobRepository
     public async Task<IEnumerable<JobTypeCount>> GetTopJobTypesAsync(int count)
     {
         return await _context.Jobs
-            .Where(j => j.IsActive == true && !string.IsNullOrEmpty(j.JobType))
+            .Where(j => j.IsActive == true && !string.IsNullOrEmpty(j.JobType) && j.IsUserCreated == false)
             .GroupBy(j => j.JobType)
             .Select(g => new JobTypeCount
             {
@@ -222,7 +224,8 @@ public class JobRepository : IJobRepository
         var jobs = await _context.Jobs
             .Where(j => j.PostedDate != null &&
                         j.PostedDate.Value.Date <= endDate &&
-                        (j.ExpiryDate == null || j.ExpiryDate.Value.Date > startDate))
+                        (j.ExpiryDate == null || j.ExpiryDate.Value.Date > startDate) &&
+                        j.IsUserCreated == false)
             .ToListAsync();
 
         var statistics = new List<DailyJobStatistics>();

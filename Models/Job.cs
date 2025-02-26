@@ -25,7 +25,7 @@ public class Job
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? ExpiryDate { get; set; }
 
-    public bool? IsUserCreated { get; set; }
+    public bool? IsUserCreated { get; set; } = false;
     public bool? IsNew { get; set; }
     public bool? IsActive { get; set; } = true;
 }
