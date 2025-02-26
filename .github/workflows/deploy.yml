@@ -9,9 +9,10 @@ on:
 
 env:
   DOTNET_ENVIRONMENT: 'Production'
-  DOCKER_IMAGE_NAME: 'job-tracker-api'
+  DOCKER_IMAGE_NAME: 'apply-track'
   DOCKER_REGISTRY: 'ghcr.io'
   GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+  DOCKER_CONTAINER_NAME: 'apply-track-api-container'
 
 jobs:
   build-and-deploy:
@@ -44,6 +45,9 @@ jobs:
           if [ -z "${{ secrets.GOOGLE_SECRET }}" ]; then echo "Missing GOOGLE_SECRET secret"; exit 1; fi
           if [ -z "${{ secrets.GEMINI_API_KEY }}" ]; then echo "Missing GEMINI_API_KEY secret"; exit 1; fi
           if [ -z "${{ secrets.GEMINI_API_ENDPOINT }}" ]; then echo "Missing GEMINI_API_ENDPOINT secret"; exit 1; fi
+          if [ -z "${{ secrets.SSH_HOST }}" ]; then echo "Missing SSH_HOST secret"; exit 1; fi
+          if [ -z "${{ secrets.SSH_USERNAME }}" ]; then echo "Missing SSH_USERNAME secret"; exit 1; fi
+          if [ -z "${{ secrets.SSH_PRIVATE_KEY }}" ]; then echo "Missing SSH_PRIVATE_KEY secret"; exit 1; fi
           echo "All required secrets are present"
 
       - name: Configuration Setup
@@ -103,10 +107,39 @@ jobs:
 
       - name: Deploy to Development Environment
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-        run: |
-          echo "Deploying to development environment..."
-          # Add deployment commands here if you're deploying to your own infrastructure
-          # For example, SSH commands or API calls to your deployment platform
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script: |
+            # Log in to GitHub Container Registry
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.DOCKER_REGISTRY }} -u ${{ github.actor }} --password-stdin
+            
+            # Pull the latest image
+            docker pull ${{ env.DOCKER_REGISTRY }}/${{ env.GITHUB_REPOSITORY_OWNER }}/${{ env.DOCKER_IMAGE_NAME }}:latest
+            
+            # Stop and remove the old container if it exists
+            if docker ps -a | grep -q ${{ env.DOCKER_CONTAINER_NAME }}; then
+              docker stop ${{ env.DOCKER_CONTAINER_NAME }} || true
+              docker rm ${{ env.DOCKER_CONTAINER_NAME }} || true
+            fi
+            
+            # Start the new container
+            docker run -d \
+              --name ${{ env.DOCKER_CONTAINER_NAME }} \
+              --network host \
+              --restart unless-stopped \
+              -e ASPNETCORE_ENVIRONMENT=Production \
+              -e API_PORT=${{ secrets.API_PORT }} \
+              ${{ env.DOCKER_REGISTRY }}/${{ env.GITHUB_REPOSITORY_OWNER }}/${{ env.DOCKER_IMAGE_NAME }}:latest
+            
+            # Verify container is running
+            docker ps | grep ${{ env.DOCKER_CONTAINER_NAME }}
+            
+            # Clean up old images
+            docker system prune -f
 
       - name: Clean up
         if: always()
