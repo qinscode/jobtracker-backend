@@ -9,10 +9,10 @@ on:
 
 env:
   DOTNET_ENVIRONMENT: 'Production'
-  DOCKER_IMAGE_NAME: 'apply-track'
+  DOCKER_IMAGE_NAME: 'job-tracker-api'
   DOCKER_REGISTRY: 'ghcr.io'
   GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
-  DOCKER_CONTAINER_NAME: 'apply-track-api-container'
+  DOCKER_CONTAINER_NAME: 'job-tracker-api-container'
 
 jobs:
   build-and-deploy:
@@ -50,20 +50,45 @@ jobs:
           if [ -z "${{ secrets.SSH_PRIVATE_KEY }}" ]; then echo "Missing SSH_PRIVATE_KEY secret"; exit 1; fi
           echo "All required secrets are present"
 
-      - name: Configuration Setup
+      - name: Create Production Configuration
         run: |
-          cat appsettings.json | \
-          sed "s/#{DB_HOST}/${{ secrets.DB_HOST }}/g" | \
-          sed "s/#{DB_USERNAME}/${{ secrets.DB_USERNAME }}/g" | \
-          sed "s/#{DB_PASSWORD}/${{ secrets.DB_PASSWORD }}/g" | \
-          sed "s/#{JWT_SECRET}/${{ secrets.JWT_SECRET }}/g" | \
-          sed "s/#{JWT_ISSUER}/${{ secrets.JWT_ISSUER }}/g" | \
-          sed "s/#{JWT_AUDIENCE}/${{ secrets.JWT_AUDIENCE }}/g" | \
-          sed "s/#{GOOGLE_CLIENT_ID}/${{ secrets.GOOGLE_CLIENT_ID }}/g" | \
-          sed "s/#{GOOGLE_SECRET}/${{ secrets.GOOGLE_SECRET }}/g" | \
-          sed "s/#{GEMINI_API_KEY}/${{ secrets.GEMINI_API_KEY }}/g" | \
-          sed "s/#{GEMINI_API_ENDPOINT}/${{ secrets.GEMINI_API_ENDPOINT }}/g" | \
-          sed "s/#{DB_DATABASE}/${{ secrets.DB_DATABASE }}/g" > appsettings.Production.json
+          # Create a valid JSON configuration file
+          cat > appsettings.Production.json << EOF
+          {
+            "ConnectionStrings": {
+              "DefaultConnection": "Host=${{ secrets.DB_HOST }};Port=5432;Database=${{ secrets.DB_DATABASE }};Username=${{ secrets.DB_USERNAME }};Password=${{ secrets.DB_PASSWORD }};"
+            },
+            "Jwt": {
+              "Key": "${{ secrets.JWT_SECRET }}",
+              "Issuer": "${{ secrets.JWT_ISSUER }}",
+              "Audience": "${{ secrets.JWT_AUDIENCE }}"
+            },
+            "Authentication": {
+              "Google": {
+                "ClientId": "${{ secrets.GOOGLE_CLIENT_ID }}",
+                "ClientSecret": "${{ secrets.GOOGLE_SECRET }}"
+              }
+            },
+            "Gemini": {
+              "ApiKey": "${{ secrets.GEMINI_API_KEY }}",
+              "ApiEndpoint": "${{ secrets.GEMINI_API_ENDPOINT }}"
+            },
+            "API_PORT": "${{ secrets.API_PORT }}",
+            "Logging": {
+              "LogLevel": {
+                "Default": "Information",
+                "Microsoft.AspNetCore": "Warning"
+              }
+            },
+            "AllowedHosts": "*"
+          }
+          EOF
+          
+          # Verify that the JSON is valid
+          jq . appsettings.Production.json
+          
+          # Show the file (with sensitive information masked)
+          cat appsettings.Production.json | sed 's/"Key": "[^"]*"/"Key": "***"/g' | sed 's/"ClientSecret": "[^"]*"/"ClientSecret": "***"/g' | sed 's/"ApiKey": "[^"]*"/"ApiKey": "***"/g' | sed 's/"Password=[^;]*;/"Password=***;/g'
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -91,10 +116,21 @@ jobs:
             type=sha,format=short
             type=raw,value=latest,enable={{is_default_branch}}
 
+      - name: Prepare Docker build context
+        run: |
+          # Create a directory for the Docker build context
+          mkdir -p docker-context
+          
+          # Copy necessary files
+          cp -r . docker-context/
+          
+          # Ensure the production config is properly placed
+          cp appsettings.Production.json docker-context/
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: docker-context
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
@@ -114,6 +150,9 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
           script: |
+            # Create directory for config file if it doesn't exist
+            mkdir -p ~/job-tracker-config
+            
             # Log in to GitHub Container Registry
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.DOCKER_REGISTRY }} -u ${{ github.actor }} --password-stdin
             
@@ -126,17 +165,55 @@ jobs:
               docker rm ${{ env.DOCKER_CONTAINER_NAME }} || true
             fi
             
-            # Start the new container
+            # Create a volume for persistent configuration
+            cat > ~/job-tracker-config/appsettings.Production.json << 'EOF'
+            {
+              "ConnectionStrings": {
+                "DefaultConnection": "Host=${{ secrets.DB_HOST }};Port=5432;Database=${{ secrets.DB_DATABASE }};Username=${{ secrets.DB_USERNAME }};Password=${{ secrets.DB_PASSWORD }};"
+              },
+              "Jwt": {
+                "Key": "${{ secrets.JWT_SECRET }}",
+                "Issuer": "${{ secrets.JWT_ISSUER }}",
+                "Audience": "${{ secrets.JWT_AUDIENCE }}"
+              },
+              "Authentication": {
+                "Google": {
+                  "ClientId": "${{ secrets.GOOGLE_CLIENT_ID }}",
+                  "ClientSecret": "${{ secrets.GOOGLE_SECRET }}"
+                }
+              },
+              "Gemini": {
+                "ApiKey": "${{ secrets.GEMINI_API_KEY }}",
+                "ApiEndpoint": "${{ secrets.GEMINI_API_ENDPOINT }}"
+              },
+              "API_PORT": "${{ secrets.API_PORT }}",
+              "Logging": {
+                "LogLevel": {
+                  "Default": "Information",
+                  "Microsoft.AspNetCore": "Warning"
+                }
+              },
+              "AllowedHosts": "*"
+            }
+            EOF
+            
+            # Start the new container with volume mount for config
             docker run -d \
               --name ${{ env.DOCKER_CONTAINER_NAME }} \
               --network host \
               --restart unless-stopped \
               -e ASPNETCORE_ENVIRONMENT=Production \
               -e API_PORT=${{ secrets.API_PORT }} \
+              -v ~/job-tracker-config/appsettings.Production.json:/app/appsettings.Production.json \
               ${{ env.DOCKER_REGISTRY }}/${{ env.GITHUB_REPOSITORY_OWNER }}/${{ env.DOCKER_IMAGE_NAME }}:latest
             
             # Verify container is running
             docker ps | grep ${{ env.DOCKER_CONTAINER_NAME }}
+            
+            # Check logs for startup errors
+            echo "Container logs:"
+            sleep 5
+            docker logs ${{ env.DOCKER_CONTAINER_NAME }}
             
             # Clean up old images
             docker system prune -f
