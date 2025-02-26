@@ -1,5 +1,6 @@
 using JobTracker.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace JobTracker.Data;
 
@@ -93,7 +94,12 @@ public class JobTrackerContext : DbContext
                 v => string.Join(',', v ?? Array.Empty<string>()),
                 v => string.IsNullOrEmpty(v)
                     ? Array.Empty<string>()
-                    : v.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    : v.Split(',', StringSplitOptions.RemoveEmptyEntries),
+                new ValueComparer<string[]>(
+                    (c1, c2) => c1.SequenceEqual(c2),
+                    c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
+                    c => c.ToArray()
+                )
             );
     }
 }

@@ -48,4 +48,8 @@
         <Compile Remove="Controllers\EmailAccountsController.cs"/>
     </ItemGroup>
 
+    <ItemGroup>
+        <Content Include=".github\workflows\deploy.yml"/>
+    </ItemGroup>
+
 </Project>
