@@ -116,27 +116,18 @@ jobs:
             type=sha,format=short
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Prepare Docker build context
-        run: |
-          # Create a directory for the Docker build context
-          mkdir -p docker-context
-          
-          # Copy necessary files
-          cp -r . docker-context/
-          
-          # Ensure the production config is properly placed
-          cp appsettings.Production.json docker-context/
-
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: docker-context
+          context: .
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            ASPNETCORE_ENVIRONMENT=Production
 
       - name: Image digest
         run: echo "Image digest ${{ steps.meta.outputs.digest }}"
@@ -165,7 +156,7 @@ jobs:
               docker rm ${{ env.DOCKER_CONTAINER_NAME }} || true
             fi
             
-            # Create a volume for persistent configuration
+            # Create configuration file on the host
             cat > ~/job-tracker-config/appsettings.Production.json << 'EOF'
             {
               "ConnectionStrings": {
@@ -196,6 +187,9 @@ jobs:
               "AllowedHosts": "*"
             }
             EOF
+            
+            # Ensure file has the right permissions
+            chmod 600 ~/job-tracker-config/appsettings.Production.json
             
             # Start the new container with volume mount for config
             docker run -d \
