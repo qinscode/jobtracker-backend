@@ -61,6 +61,9 @@ jobs:
           sed "s/#{GEMINI_API_ENDPOINT}/${{ secrets.GEMINI_API_ENDPOINT }}/g" | \
           sed "s/#{DB_DATABASE}/${{ secrets.DB_DATABASE }}/g" > appsettings.Production.json
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -88,6 +91,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
