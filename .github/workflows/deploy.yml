@@ -31,21 +31,20 @@ jobs:
 
       - name: Environment Validation
         run: |
-          required_secrets=("DB_HOST" "DB_USERNAME" "DB_PASSWORD" "DB_DATABASE" "API_PORT" 
-                           "JWT_SECRET" "JWT_ISSUER" "JWT_AUDIENCE" "GOOGLE_CLIENT_ID" 
-                           "GOOGLE_SECRET" "GEMINI_API_KEY" "GEMINI_API_ENDPOINT")
-          
-          missing_secrets=()
-          for secret in "${required_secrets[@]}"; do
-            if [ -z "${{ secrets[format('{0}', secret)] }}" ]; then
-              missing_secrets+=("$secret")
-            fi
-          done
-          
-          if [ ${#missing_secrets[@]} -ne 0 ]; then
-            echo "Error: Missing required secrets: ${missing_secrets[*]}"
-            exit 1
-          fi
+          # Simple validation to ensure required secrets exist
+          if [ -z "${{ secrets.DB_HOST }}" ]; then echo "Missing DB_HOST secret"; exit 1; fi
+          if [ -z "${{ secrets.DB_USERNAME }}" ]; then echo "Missing DB_USERNAME secret"; exit 1; fi
+          if [ -z "${{ secrets.DB_PASSWORD }}" ]; then echo "Missing DB_PASSWORD secret"; exit 1; fi
+          if [ -z "${{ secrets.DB_DATABASE }}" ]; then echo "Missing DB_DATABASE secret"; exit 1; fi
+          if [ -z "${{ secrets.API_PORT }}" ]; then echo "Missing API_PORT secret"; exit 1; fi
+          if [ -z "${{ secrets.JWT_SECRET }}" ]; then echo "Missing JWT_SECRET secret"; exit 1; fi
+          if [ -z "${{ secrets.JWT_ISSUER }}" ]; then echo "Missing JWT_ISSUER secret"; exit 1; fi
+          if [ -z "${{ secrets.JWT_AUDIENCE }}" ]; then echo "Missing JWT_AUDIENCE secret"; exit 1; fi
+          if [ -z "${{ secrets.GOOGLE_CLIENT_ID }}" ]; then echo "Missing GOOGLE_CLIENT_ID secret"; exit 1; fi
+          if [ -z "${{ secrets.GOOGLE_SECRET }}" ]; then echo "Missing GOOGLE_SECRET secret"; exit 1; fi
+          if [ -z "${{ secrets.GEMINI_API_KEY }}" ]; then echo "Missing GEMINI_API_KEY secret"; exit 1; fi
+          if [ -z "${{ secrets.GEMINI_API_ENDPOINT }}" ]; then echo "Missing GEMINI_API_ENDPOINT secret"; exit 1; fi
+          echo "All required secrets are present"
 
       - name: Configuration Setup
         run: |
