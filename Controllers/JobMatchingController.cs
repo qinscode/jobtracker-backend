@@ -64,7 +64,7 @@ public class JobMatchingController : ControllerBase
     {
         try
         {
-            var (companyName, jobTitle, status, keyPhrases, SuggestedActions) =
+            var (companyName, jobTitle, status, keyPhrases, suggestedActions, reasonForRejection) =
                 await _aiAnalysisService.ExtractJobInfo(request.EmailContent);
 
             return Ok(new EmailAnalysisTestResponse
@@ -73,7 +73,8 @@ public class JobMatchingController : ControllerBase
                 JobTitle = jobTitle,
                 Status = status.ToString(),
                 KeyPhrases = keyPhrases,
-                SuggestedActions = SuggestedActions,
+                SuggestedActions = suggestedActions,
+                ReasonForRejection = reasonForRejection,
                 RawContent = request.EmailContent
             });
         }
@@ -103,6 +104,7 @@ public class EmailAnalysisTestResponse
     public string Status { get; set; } = string.Empty;
     public List<string> KeyPhrases { get; set; } = new();
     public string? SuggestedActions { get; set; }
+    public string? ReasonForRejection { get; set; }
     public string RawContent { get; set; } = string.Empty;
 }
 

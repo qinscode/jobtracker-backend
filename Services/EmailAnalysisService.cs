@@ -105,7 +105,7 @@ public class EmailAnalysisService : IEmailAnalysisService
 
             try
             {
-                var (companyName, jobTitle, status, keyPhrases, SuggestedActions) =
+                var (companyName, jobTitle, status, keyPhrases, SuggestedActions, reasonForRejection) =
                     await _aiAnalysisService.ExtractJobInfo(email.Body);
 
                 // 创建基本的分析结果
@@ -117,6 +117,7 @@ public class EmailAnalysisService : IEmailAnalysisService
                     Status = status.ToString(),
                     KeyPhrases = keyPhrases,
                     SuggestedActions = SuggestedActions,
+                    ReasonForRejection = reasonForRejection,
                     Similarity = null // 初始化为 null
                 };
 
@@ -190,6 +191,7 @@ public class EmailAnalysisService : IEmailAnalysisService
                             Uid = email.Uid,
                             KeyPhrases = keyPhrases.ToArray(),
                             SuggestedActions = SuggestedActions,
+                            ReasonForRejection = reasonForRejection,
                             Similarity = similarity
                         };
 
@@ -247,6 +249,7 @@ public class EmailAnalysisService : IEmailAnalysisService
                                 Uid = email.Uid,
                                 KeyPhrases = keyPhrases.ToArray(),
                                 SuggestedActions = SuggestedActions,
+                                ReasonForRejection = reasonForRejection,
                                 Similarity = 1.0 // 新创建的工作，设置为完全匹配
                             };
 

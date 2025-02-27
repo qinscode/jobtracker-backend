@@ -62,7 +62,7 @@ public class EmailAnalysisServiceTests
 
         _aiAnalysisServiceMock.Setup(service => service.ExtractJobInfo(It.IsAny<string>()))
             .ReturnsAsync(("Test Company", "Test Job", UserJobStatus.Applied, new List<string> { "key phrase" },
-                "Suggested action"));
+                "Suggested action", "No rejection reason"));
 
         _jobMatchingServiceMock.Setup(service => service.FindMatchingJobAsync(It.IsAny<string>(), It.IsAny<string>()))
             .ReturnsAsync((true, new Job { Id = 1, JobTitle = "Test Job", BusinessName = "Test Company" }, 0.9));
@@ -129,7 +129,7 @@ public class EmailAnalysisServiceTests
             .ReturnsAsync(false);
 
         _aiAnalysisServiceMock.Setup(s => s.ExtractJobInfo(It.IsAny<string>()))
-            .ReturnsAsync(("", "", UserJobStatus.Applied, new List<string>(), null));
+            .ReturnsAsync(("", "", UserJobStatus.Applied, new List<string>(), null, "No rejection reason"));
 
         // Act
         var result = await _emailAnalysisService.AnalyzeRecentEmails(config);
@@ -164,7 +164,8 @@ public class EmailAnalysisServiceTests
             .ReturnsAsync(false);
 
         _aiAnalysisServiceMock.Setup(s => s.ExtractJobInfo(It.IsAny<string>()))
-            .ReturnsAsync(("New Company", "Developer", UserJobStatus.Applied, new List<string>(), null));
+            .ReturnsAsync(("New Company", "Developer", UserJobStatus.Applied, new List<string>(), null,
+                "No rejection reason"));
 
         _jobMatchingServiceMock.Setup(s => s.FindMatchingJobAsync("Developer", "New Company"))
             .ReturnsAsync((false, null, 0.0));
@@ -225,7 +226,8 @@ public class EmailAnalysisServiceTests
             .ReturnsAsync(false);
 
         _aiAnalysisServiceMock.Setup(s => s.ExtractJobInfo(It.IsAny<string>()))
-            .ReturnsAsync(("Existing Company", "Developer", UserJobStatus.Interviewing, new List<string>(), null));
+            .ReturnsAsync(("Existing Company", "Developer", UserJobStatus.Interviewing, new List<string>(), null,
+                "No rejection reason"));
 
         _jobMatchingServiceMock.Setup(s => s.FindMatchingJobAsync("Developer", "Existing Company"))
             .ReturnsAsync((true, existingJob, 0.9));

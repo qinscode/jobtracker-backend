@@ -112,6 +112,7 @@ public class EmailAnalysisController : ControllerBase
                     },
                 KeyPhrases = e.KeyPhrases.ToList(),
                 SuggestedActions = e.SuggestedActions,
+                ReasonForRejection = e.ReasonForRejection,
                 Similarity = e.Similarity,
                 Status = e.MatchedJob != null ? jobStatuses[e.MatchedJob.Id].ToString() : UserJobStatus.New.ToString()
             }).ToList();
@@ -176,6 +177,7 @@ public class EmailAnalysisController : ControllerBase
                     },
                 KeyPhrases = e.KeyPhrases.ToList(),
                 SuggestedActions = e.SuggestedActions,
+                ReasonForRejection = e.ReasonForRejection,
                 Similarity = e.Similarity,
                 Status = e.MatchedJob != null ? jobStatuses[e.MatchedJob.Id].ToString() : UserJobStatus.New.ToString()
             }).ToList();
@@ -257,6 +259,7 @@ public class EmailAnalysisController : ControllerBase
                     },
                 KeyPhrases = e.KeyPhrases.ToList(),
                 SuggestedActions = e.SuggestedActions,
+                ReasonForRejection = e.ReasonForRejection,
                 Similarity = e.Similarity,
                 Status = e.MatchedJob != null ? jobStatuses[e.MatchedJob.Id].ToString() : UserJobStatus.New.ToString()
             }).ToList();

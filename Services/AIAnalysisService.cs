@@ -72,7 +72,7 @@ public class AIAnalysisService : IAIAnalysisService
 
     public async
         Task<(string CompanyName, string JobTitle, UserJobStatus Status, List<string> KeyPhrases, string?
-            SuggestedActions)> ExtractJobInfo(string emailContent)
+            SuggestedActions, string? ReasonForRejection)> ExtractJobInfo(string emailContent)
     {
         try
         {
@@ -80,25 +80,27 @@ public class AIAnalysisService : IAIAnalysisService
             var status = ParseJobStatus(jobInfo?.Status);
 
             _logger.LogInformation(
-                "Extracted job info - Company: {Company}, Title: {Title}, Status: {Status}, KeyPhrases: {KeyPhrases}, SuggestedActions: {SuggestedActions}",
+                "Extracted job info - Company: {Company}, Title: {Title}, Status: {Status}, KeyPhrases: {KeyPhrases}, SuggestedActions: {SuggestedActions}, ReasonForRejection: {ReasonForRejection}",
                 jobInfo?.BusinessName,
                 jobInfo?.JobTitle,
                 status,
                 jobInfo?.KeyPhrases != null ? string.Join(", ", jobInfo.KeyPhrases) : "none",
-                jobInfo?.SuggestedActions ?? "none");
+                jobInfo?.SuggestedActions ?? "none",
+                jobInfo?.ReasonForRejection ?? "none");
 
             return (
                 jobInfo?.BusinessName ?? "",
                 jobInfo?.JobTitle ?? "",
                 status,
                 jobInfo?.KeyPhrases ?? new List<string>(),
-                jobInfo?.SuggestedActions
+                jobInfo?.SuggestedActions,
+                jobInfo?.ReasonForRejection
             );
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error extracting job info");
-            return ("", "", UserJobStatus.Applied, new List<string>(), null);
+            return ("", "", UserJobStatus.Applied, new List<string>(), null, null);
         }
     }
 
@@ -274,6 +276,9 @@ public class AIAnalysisService : IAIAnalysisService
         [JsonPropertyName("KeyPhrases")] public List<string> KeyPhrases { get; set; } = new();
 
         [JsonPropertyName("SuggestedActions")] public string? SuggestedActions { get; set; }
+
+        [JsonPropertyName("ReasonForRejection")]
+        public string? ReasonForRejection { get; set; }
     }
 
     private class GeminiApiResponse

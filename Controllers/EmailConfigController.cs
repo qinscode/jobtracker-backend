@@ -161,7 +161,8 @@ public class EmailConfigController : ControllerBase
                         },
                     r.Status,
                     r.KeyPhrases,
-                    r.SuggestedActions
+                    r.SuggestedActions,
+                    r.ReasonForRejection
                 });
 
             return Ok(new
@@ -215,7 +216,8 @@ public class EmailConfigController : ControllerBase
                         },
                     Status = r.Status.ToString(),
                     r.KeyPhrases,
-                    r.SuggestedActions
+                    r.SuggestedActions,
+                    r.ReasonForRejection
                 }).OrderByDescending(r => r.ReceivedDate)
             };
 
@@ -276,7 +278,8 @@ public class EmailConfigController : ControllerBase
                         },
                     Status = r.Status.ToString(),
                     r.KeyPhrases,
-                    r.SuggestedActions
+                    r.SuggestedActions,
+                    r.ReasonForRejection
                 });
 
             return Ok(new
