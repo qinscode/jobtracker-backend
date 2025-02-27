@@ -37,6 +37,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <Folder Include=".github\workflows\"/>
         <Folder Include="Tests\controllers\"/>
         <Folder Include="Tests\SystemTests\"/>
     </ItemGroup>
@@ -49,7 +50,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <Content Include=".github\workflows\deploy.yml"/>
+        <Content Include=".github\deploy.yml"/>
     </ItemGroup>
 
 </Project>
