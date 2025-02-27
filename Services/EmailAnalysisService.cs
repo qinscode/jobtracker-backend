@@ -219,7 +219,8 @@ public class EmailAnalysisService : IEmailAnalysisService
                             Area = "",
                             Url = "",
                             JobDescription = "",
-                            AdvertiserId = 0
+                            AdvertiserId = 0,
+                            IsUserCreated = true
                         };
 
                         try
