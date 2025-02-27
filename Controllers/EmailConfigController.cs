@@ -227,6 +227,73 @@ public class EmailConfigController : ControllerBase
         }
     }
 
+    [HttpPost("scan-all")]
+    public async Task<IActionResult> ScanAllEmails()
+    {
+        try
+        {
+            var userId = GetUserIdFromToken();
+            var configs = await _configRepository.GetByUserIdAsync(userId);
+
+            if (!configs.Any())
+            {
+                return NotFound(new { message = "No email configurations found for this user" });
+            }
+
+            var allResults = new List<EmailAnalysisDto>();
+
+            foreach (var config in configs)
+            {
+                _logger.LogInformation(
+                    "Starting full email scan for config {Id} (email: {Email})",
+                    config.Id,
+                    config.EmailAddress);
+
+                var results = await _emailAnalysisService.AnalyzeAllEmails(config);
+                allResults.AddRange(results);
+
+                _logger.LogInformation(
+                    "Completed full email scan for config {Id}, found {Count} emails",
+                    config.Id,
+                    results.Count);
+            }
+
+            // 格式化响应，包含新的字段
+            var response = allResults
+                .OrderByDescending(r => r.ReceivedDate)
+                .Select(r => new
+                {
+                    r.Subject,
+                    r.ReceivedDate,
+                    r.IsRecognized,
+                    Job = r.Job == null
+                        ? null
+                        : new
+                        {
+                            r.Job.Id,
+                            r.Job.JobTitle,
+                            r.Job.BusinessName
+                        },
+                    Status = r.Status.ToString(),
+                    r.KeyPhrases,
+                    r.SuggestedActions
+                });
+
+            return Ok(new
+            {
+                message = "Full email scan completed successfully",
+                totalEmails = allResults.Count,
+                recognizedEmails = allResults.Count(r => r.IsRecognized),
+                results = response
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during full email scan");
+            return StatusCode(500, "An error occurred while scanning all emails");
+        }
+    }
+
     private Guid GetUserIdFromToken()
     {
         var token = HttpContext.Request.Headers["Authorization"].FirstOrDefault()?.Split(" ").Last();
