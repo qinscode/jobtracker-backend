@@ -26,7 +26,7 @@ public class JobRepository : IJobRepository
 
     public async Task<int> GetJobsCountAsync()
     {
-        return await _context.Jobs.Where(j => j.IsActive == true).CountAsync();
+        return await _context.Jobs.Where(j => j.IsActive == true && j.IsUserCreated == false).CountAsync();
     }
 
     public async Task<IEnumerable<Job>> GetActiveJobsAsync(int pageNumber, int pageSize)
