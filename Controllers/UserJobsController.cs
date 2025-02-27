@@ -365,7 +365,7 @@ public class UserJobsController : ControllerBase
     }
 
     [HttpGet("my")]
-    public async Task<ActionResult<JobsResponseDto>> GetMyUserJobs(
+    public async Task<ActionResult<MyJobsResponseDto>> GetMyUserJobs(
         [FromQuery] string? searchTerm = null,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10)
@@ -379,25 +379,20 @@ public class UserJobsController : ControllerBase
                 pageSize);
             var totalCount = await _userJobRepository.CountJobsByTitleAsync(userGuid, searchTerm, null);
 
-            var response = new JobsResponseDto
+            var response = new MyJobsResponseDto
             {
-                Jobs = jobs.Select(j => new JobDto
+                Jobs = jobs.Select(j => new MyJobDto
                 {
                     Id = j.Id,
                     JobTitle = j.JobTitle ?? "",
                     BusinessName = j.BusinessName ?? "",
-                    WorkType = j.WorkType ?? "",
                     JobType = j.JobType ?? "",
                     PayRange = j.PayRange ?? "",
-                    MinSalary = j.MinSalary ?? 0,
-                    MaxSalary = j.MaxSalary ?? 0,
                     Suburb = j.Suburb ?? "",
-                    Area = j.Area ?? "",
                     Url = j.Url ?? "",
                     Status = GetJobStatus(userGuid, j.Id),
-                    PostedDate = j.PostedDate?.ToString("yyyy-MM-dd") ?? "",
-                    JobDescription = j.JobDescription ?? "",
-                    TechStack = j.TechStack ?? Array.Empty<string>()
+                    CreatedAt = j.CreatedAt,
+                    UpdatedAt = j.UpdatedAt
                 }),
                 TotalCount = totalCount,
                 PageNumber = pageNumber,
@@ -411,25 +406,20 @@ public class UserJobsController : ControllerBase
         var regularJobs = await _userJobRepository.GetJobsByUserIdAndStatusAsync(userGuid, null, pageNumber, pageSize);
         var regularTotalCount = await _userJobRepository.GetJobsCountByUserIdAndStatusAsync(userGuid, null);
 
-        var regularResponse = new JobsResponseDto
+        var regularResponse = new MyJobsResponseDto
         {
-            Jobs = regularJobs.Select(j => new JobDto
+            Jobs = regularJobs.Select(j => new MyJobDto
             {
                 Id = j.Id,
                 JobTitle = j.JobTitle ?? "",
                 BusinessName = j.BusinessName ?? "",
-                WorkType = j.WorkType ?? "",
                 JobType = j.JobType ?? "",
                 PayRange = j.PayRange ?? "",
-                MinSalary = j.MinSalary ?? 0,
-                MaxSalary = j.MaxSalary ?? 0,
                 Suburb = j.Suburb ?? "",
-                Area = j.Area ?? "",
                 Url = j.Url ?? "",
                 Status = GetJobStatus(userGuid, j.Id),
-                PostedDate = j.PostedDate?.ToString("yyyy-MM-dd") ?? "",
-                JobDescription = j.JobDescription ?? "",
-                TechStack = j.TechStack ?? Array.Empty<string>()
+                CreatedAt = j.CreatedAt,
+                UpdatedAt = j.UpdatedAt
             }),
             TotalCount = regularTotalCount,
             PageNumber = pageNumber,
