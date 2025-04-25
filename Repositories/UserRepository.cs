@@ -33,9 +33,6 @@ public class UserRepository : IUserRepository
 
     public async Task<User> CreateUserAsync(User user)
     {
-        // Ensure the password is hashed before saving
-        if (!string.IsNullOrEmpty(user.Password)) user.SetPassword(user.Password);
-
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
         return user;

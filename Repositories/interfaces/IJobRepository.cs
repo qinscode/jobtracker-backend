@@ -1,6 +1,6 @@
 using JobTracker.Models;
 
-namespace JobTracker.Repositories;
+namespace JobTracker.Repositories.Interfaces;
 
 public interface IJobRepository
 {

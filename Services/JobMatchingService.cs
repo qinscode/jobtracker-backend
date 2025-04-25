@@ -1,6 +1,6 @@
 using FuzzySharp;
 using JobTracker.Models;
-using JobTracker.Repositories;
+using JobTracker.Repositories.Interfaces;
 using JobTracker.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 

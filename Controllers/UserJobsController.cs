@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using JobTracker.Models;
 using JobTracker.Repositories;
+using JobTracker.Repositories.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 

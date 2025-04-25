@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using JobTracker.Data;
 using JobTracker.Repositories;
+using JobTracker.Repositories.Interfaces;
 using JobTracker.Services;
 using JobTracker.Services.BackgroundServices;
 using JobTracker.Services.Interfaces;

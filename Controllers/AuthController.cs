@@ -33,8 +33,9 @@ public class AuthController : ControllerBase
 
         var user = await _userRepository.GetUserByEmailAsync(model.Email);
 
-        if (user == null || !user.VerifyPassword(model.Password))
-            return Unauthorized(new { message = "Invalid email or password" });
+        if (user == null) return Unauthorized(new { message = "Invalid email or password" });
+
+        if (!user.VerifyPassword(model.Password)) return Unauthorized(new { message = "Invalid email or password" });
 
         var token = GenerateJwtToken(user);
 
@@ -50,12 +51,20 @@ public class AuthController : ControllerBase
         if (existingUser != null)
             return BadRequest(new { message = "User with this email already exists" });
 
+        // Debug statements
+        Console.WriteLine("Register - Original password: " + model.Password);
+
         var newUser = new User
         {
             Email = model.Email,
             Username = model.Username
         };
+
+        // Hash password and store
         newUser.SetPassword(model.Password);
+
+        // Debug after setting password
+        Console.WriteLine("Register - Hashed password stored: " + newUser.Password);
 
         await _userRepository.CreateUserAsync(newUser);
 

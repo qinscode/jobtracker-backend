@@ -1,5 +1,6 @@
 using JobTracker.Models;
 using JobTracker.Repositories;
+using JobTracker.Repositories.Interfaces;
 using JobTracker.Services.Interfaces;
 
 namespace JobTracker.Services;

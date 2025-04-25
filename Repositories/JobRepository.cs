@@ -1,5 +1,6 @@
 using JobTracker.Data;
 using JobTracker.Models;
+using JobTracker.Repositories.Interfaces;
 using JobTracker.Utilities;
 using Microsoft.EntityFrameworkCore;
 
