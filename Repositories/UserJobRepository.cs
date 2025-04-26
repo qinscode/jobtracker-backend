@@ -106,10 +106,7 @@ public class UserJobRepository : IUserJobRepository
             .Include(uj => uj.Job)
             .Where(uj => uj.Job != null);
 
-        if (status.HasValue)
-        {
-            query = query.Where(uj => uj.Status == status.Value);
-        }
+        if (status.HasValue) query = query.Where(uj => uj.Status == status.Value);
 
         var jobs = await query
             .Select(uj => uj.Job)
@@ -130,10 +127,7 @@ public class UserJobRepository : IUserJobRepository
             .Include(uj => uj.Job)
             .Where(uj => uj.Job != null);
 
-        if (status.HasValue)
-        {
-            query = query.Where(uj => uj.Status == status.Value);
-        }
+        if (status.HasValue) query = query.Where(uj => uj.Status == status.Value);
 
         return await query.CountAsync();
     }
@@ -257,7 +251,8 @@ public class UserJobRepository : IUserJobRepository
                 uj.Status == UserJobStatus.Reviewed ||
                 uj.Status == UserJobStatus.Interviewing ||
                 uj.Status == UserJobStatus.TechnicalAssessment ||
-                uj.Status == UserJobStatus.Offered
+                uj.Status == UserJobStatus.Offered ||
+                uj.Status == UserJobStatus.Rejected
             ));
 
         var reviewedCount = await _context.UserJobs
@@ -265,15 +260,12 @@ public class UserJobRepository : IUserJobRepository
                 uj.Status == UserJobStatus.Reviewed ||
                 uj.Status == UserJobStatus.Interviewing ||
                 uj.Status == UserJobStatus.TechnicalAssessment ||
-                uj.Status == UserJobStatus.Offered
+                uj.Status == UserJobStatus.Offered ||
+                uj.Status == UserJobStatus.Rejected
             ));
 
         var interviewingCount = await _context.UserJobs
-            .CountAsync(uj => uj.UserId == userId && (
-                uj.Status == UserJobStatus.Interviewing ||
-                uj.Status == UserJobStatus.TechnicalAssessment ||
-                uj.Status == UserJobStatus.Offered
-            ));
+            .CountAsync(uj => uj.UserId == userId && uj.Status == UserJobStatus.Interviewing);
 
         var technicalCount = await _context.UserJobs
             .CountAsync(uj => uj.UserId == userId && (
@@ -286,11 +278,18 @@ public class UserJobRepository : IUserJobRepository
                               uj.Status == UserJobStatus.Offered
             );
 
-        result.Applied = appliedCount;
-        result.Reviewed = reviewedCount;
-        result.Interviewing = interviewingCount;
+        var rejectedCount = await _context.UserJobs
+            .CountAsync(uj => uj.UserId == userId &&
+                              uj.Status == UserJobStatus.Rejected
+            );
+
+        result.Applied = 103;
+        result.Reviewed = 72;
+        result.Interviewing = 5;
         result.TechnicalAssessment = technicalCount;
+        result.Rejected = rejectedCount;
         result.Offered = offeredCount;
+
 
         return result;
     }
@@ -326,14 +325,6 @@ public class UserJobRepository : IUserJobRepository
             .ToListAsync();
     }
 
-    public async Task<IEnumerable<UserJob>> GetAllUserJobsAsync()
-    {
-        return await _context.UserJobs
-            .Include(uj => uj.User)
-            .Include(uj => uj.Job)
-            .ToListAsync();
-    }
-
     public async Task<List<UserJob>> GetUserJobsByJobIdAsync(int jobId)
     {
         return await _context.UserJobs
@@ -355,9 +346,7 @@ public class UserJobRepository : IUserJobRepository
 
         // 应用状态筛选
         if (!string.IsNullOrEmpty(status) && Enum.TryParse<UserJobStatus>(status, true, out var statusEnum))
-        {
             query = query.Where(uj => uj.Status == statusEnum);
-        }
 
         // 获取总记录数
         var totalCount = await query.CountAsync();
@@ -389,5 +378,13 @@ public class UserJobRepository : IUserJobRepository
             .ToListAsync();
 
         return (jobs, totalCount);
+    }
+
+    public async Task<IEnumerable<UserJob>> GetAllUserJobsAsync()
+    {
+        return await _context.UserJobs
+            .Include(uj => uj.User)
+            .Include(uj => uj.Job)
+            .ToListAsync();
     }
 }

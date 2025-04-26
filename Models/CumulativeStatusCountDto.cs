@@ -7,4 +7,6 @@ public class CumulativeStatusCountDto
     public int Interviewing { get; set; }
     public int TechnicalAssessment { get; set; }
     public int Offered { get; set; }
+
+    public int Rejected { get; set; }
 }
